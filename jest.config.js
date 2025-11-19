@@ -21,6 +21,7 @@ const esModules = [
   '@exodus/bytes',
   'rettime',
   '@open-draft/deferred-promise',
+  '@gravitational/design-system',
 ].join('|');
 
 /** @type {import('@jest/types').Config.InitialOptions} */
