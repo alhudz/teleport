@@ -215,6 +215,11 @@ func setupTestCache(t *testing.T, setupConfig cache.SetupConfigFn) (*testCache, 
 	})
 	require.NoError(t, err)
 
+	subCA, err := local.NewSubCAService(local.SubCAServiceParams{
+		Backend: bkWrapper,
+	})
+	require.NoError(t, err)
+
 	c, err := cache.New(setupConfig(cache.Config{
 		Context:                 ctx,
 		Events:                  eventsS,
@@ -266,6 +271,7 @@ func setupTestCache(t *testing.T, setupConfig cache.SetupConfigFn) (*testCache, 
 		MaxRetryPeriod:          200 * time.Millisecond,
 		EventsC:                 eventsC,
 		Summarizer:              summaries,
+		SubCAService:            subCA,
 	}))
 	require.NoError(t, err)
 

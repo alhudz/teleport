@@ -117,6 +117,7 @@ type Config struct {
 	Plugin                  services.Plugins
 	RecordingEncryption     services.RecordingEncryption
 	Summarizer              services.Summarizer
+	SubCAService            services.SubCAServiceGetter
 }
 
 func (c *Config) CheckAndSetDefaults() error {
@@ -205,6 +206,7 @@ func NewCache(cfg Config) (*cache.Cache, error) {
 		Plugin:                  cfg.Plugin,
 		RecordingEncryption:     cfg.RecordingEncryption,
 		Summarizer:              cfg.Summarizer,
+		SubCAService:            cfg.SubCAService,
 	}
 
 	return cache.New(cfg.Setup(cacheCfg))
