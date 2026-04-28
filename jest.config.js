@@ -27,6 +27,8 @@ const esModules = [
 /** @type {import('@jest/types').Config.InitialOptions} */
 module.exports = {
   ...config,
+  maxWorkers: '75%',
+  workerIdleMemoryLimit: '1GB',
   globals: {
     electron: {},
   },
