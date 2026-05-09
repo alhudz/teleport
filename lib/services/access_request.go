@@ -1028,6 +1028,10 @@ func NewReviewPermissionChecker(
 			// request as another user unless you have the admin role. This
 			// safeguard protects against that regressing and creating an
 			// inconsistent state.
+			// There should not be a scenario where a plugin identity submits
+			// a review for a bot user, so we retain this safeguard check.
+			// Plugin identities should only be able to create permission checkers for human users,
+			// if they are granted `submit_for_users` permissions.
 			return ReviewPermissionChecker{}, trace.BadParameter(
 				"bot identity username and review author mismatch",
 			)
