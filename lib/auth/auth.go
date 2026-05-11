@@ -150,6 +150,7 @@ import (
 	libsession "github.com/gravitational/teleport/lib/session"
 	"github.com/gravitational/teleport/lib/sshca"
 	"github.com/gravitational/teleport/lib/sshutils"
+	"github.com/gravitational/teleport/lib/subca"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/tpm"
 	usagereporter "github.com/gravitational/teleport/lib/usagereporter/teleport"
@@ -749,6 +750,7 @@ func NewServer(cfg *InitConfig, opts ...ServerOption) (as *Server, err error) {
 		awsOrganizationsClientGetter: cfg.AWSOrganizationsClientGetter,
 		remoteClusterRefreshLimit:    cmp.Or(cfg.RemoteClusterRefreshLimit, defaultRemoteClusterRefreshLimit),
 		remoteClusterRefreshBuckets:  cmp.Or(cfg.RemoteClusterRefreshBuckets, defaultRemoteClusterRefreshBuckets),
+		subCAEnabled:                 subca.Enabled(),
 	}
 	as.inventory = inventory.NewController(as, services,
 		inventory.WithAuthServerID(cfg.HostUUID),
@@ -1586,6 +1588,10 @@ type Server struct {
 	// anonymizationKey is used to anonymize sensitive data in a consistent way for
 	// use in telemetry and logging without exposing the original values.
 	anonymizationKey []byte
+
+	// subCAEnabled records the value of subca.Enabled()
+	// Used by tests to enable the feature.
+	subCAEnabled bool
 }
 
 // SetSAMLService registers svc as the SAMLService that provides the SAML
