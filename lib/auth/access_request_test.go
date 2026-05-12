@@ -126,6 +126,7 @@ func newAccessRequestTestPack(ctx context.Context, t *testing.T) *accessRequestT
 				},
 			},
 		},
+		// requesters-threshold can request everything possible, with threshold of 2 approvals
 		"requesters-threshold": {
 			Allow: types.RoleConditions{
 				Request: &types.AccessRequestConditions{
@@ -135,6 +136,17 @@ func newAccessRequestTestPack(ctx context.Context, t *testing.T) *accessRequestT
 					Thresholds: []types.AccessReviewThreshold{
 						{Approve: 2},
 					},
+				},
+			},
+		},
+		// plugin-reviewers can submit reviews for every user
+		"plugin-reviewers": {
+			Allow: types.RoleConditions{
+				ReviewRequests: &types.AccessReviewConditions{
+					SubmitForUsers: []string{"*"},
+				},
+				Rules: []types.Rule{
+					types.NewRule(types.KindUser, services.RO()),
 				},
 			},
 		},
@@ -156,6 +168,7 @@ func newAccessRequestTestPack(ctx context.Context, t *testing.T) *accessRequestT
 		"nobody":              {"empty"},
 		"admin2":              {"admins"},
 		"requester-threshold": {"requesters-threshold"},
+		"plugin-reviewer":     {"plugin-reviewers"},
 	}
 	for name, roles := range users {
 		user, err := types.NewUser(name)
@@ -211,7 +224,7 @@ func TestAccessRequest(t *testing.T) {
 	t.Run("bot user approver", func(t *testing.T) { testBotAccessRequestReview(t, testPack) })
 	t.Run("deny", func(t *testing.T) { testAccessRequestDenyRules(t, testPack) })
 	t.Run("cert extension resource IDs", func(t *testing.T) { testCertExtensionResourceIDs(t, testPack) })
-	t.Run("submit_for_users review", func(t *testing.T) { testSubmitAccessReview_SubmitForUsers(t, testPack) })
+	t.Run("plugin review", func(t *testing.T) { testSubmitAccessReview_SubmitForUsers(t, testPack) })
 }
 
 // waitForAccessRequests is a helper for writing access request tests that need to wait for access request CRUD. the supplied condition is
@@ -1974,58 +1987,115 @@ func testCertExtensionResourceIDs(t *testing.T, testPack *accessRequestTestPack)
 	})
 }
 
+type reviewState struct {
+	author    string
+	wantState types.RequestState
+	wantErr   error
+}
+
+// testSubmitAccessReview_SubmitForUsers tests if plugin users with the `review_requests.submit_for_users` rule
+// can submit reviews for other users.
 func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequestTestPack) {
 	t.Parallel()
 	ctx := t.Context()
 
-	// Create reviewers for access plugin: one without and one with review permissions.
-	_, err := authtest.CreateUser(ctx, testPack.tlsServer.Auth(), teleport.PresetAccessPluginRoleName, services.NewPresetAccessPluginRole())
-	require.NoError(t, err)
-
-	_, err = authtest.CreateUser(ctx, testPack.tlsServer.Auth(), teleport.PresetAccessPluginWithReviewRoleName, services.NewPresetAccessPluginWithReviewRole())
+	// Create access plugin reviewer without "submit for" review permissions.
+	_, err := authtest.CreateUser(ctx, testPack.tlsServer.Auth(), "plugin-no-review", services.NewPresetAccessPluginRole())
 	require.NoError(t, err)
 
 	tests := []struct {
-		name      string
-		authors   []string
-		states    []types.RequestState // same length as number of reviewers
-		submitter string
-		threshold bool // apply a review threshold or not
-		wantErr   error
+		name         string
+		reviewStates []reviewState
+		submitter    string // plugin identity submitting the review
+		threshold    bool   // apply a review threshold or not
 	}{
 		{
 			name:      "access-plugin without review",
-			authors:   []string{"admin"},
-			submitter: teleport.PresetAccessPluginRoleName,
-			wantErr:   trace.AccessDenied("user %q cannot submit reviews for %q", teleport.PresetAccessPluginRoleName, "admin"),
+			submitter: "plugin-no-review",
+			reviewStates: []reviewState{
+				{
+					author:  "admin",
+					wantErr: trace.AccessDenied("user %q cannot submit reviews for %q", "plugin-no-review", "admin"),
+				},
+			},
 		},
 		{
 			name:      "access-plugin with review; submitted for admin",
-			authors:   []string{"admin"},
-			states:    []types.RequestState{types.RequestState_APPROVED},
-			submitter: teleport.PresetAccessPluginWithReviewRoleName,
+			submitter: "plugin-reviewer",
+			reviewStates: []reviewState{
+				{
+					author:    "admin",
+					wantState: types.RequestState_APPROVED,
+				},
+			},
 		},
 		{
 			name:      "access-plugin with review; submitted for nobody",
-			authors:   []string{"nobody"},
-			submitter: teleport.PresetAccessPluginWithReviewRoleName,
-			wantErr:   trace.AccessDenied("user %q cannot submit reviews", "nobody"),
+			submitter: "plugin-reviewer",
+			reviewStates: []reviewState{
+				{
+					author:  "nobody",
+					wantErr: trace.AccessDenied("user %q cannot submit reviews", "nobody"),
+				},
+			},
 		},
 		{
 			name:      "access-plugin with review; submitted for non-existent user",
-			authors:   []string{"fake-user"},
-			submitter: teleport.PresetAccessPluginWithReviewRoleName,
-			wantErr: trace.AccessDenied("user %q cannot submit reviews for %q, user could not be fetched from local store",
-				teleport.PresetAccessPluginWithReviewRoleName,
-				"fake-user",
-			),
+			submitter: "plugin-reviewer",
+			reviewStates: []reviewState{
+				{
+					author: "fake-user",
+					wantErr: trace.AccessDenied("user %q cannot submit reviews for %q, user could not be fetched from local store",
+						"plugin-reviewer",
+						"fake-user",
+					),
+				},
+			},
+		},
+		{
+			name:      "access-plugin with review; submitted for same user",
+			submitter: "plugin-reviewer",
+			threshold: true,
+			reviewStates: []reviewState{
+				{
+					author:    "admin",
+					wantState: types.RequestState_PENDING,
+				},
+				{
+					author:  "admin",
+					wantErr: trace.AlreadyExists("user %q has already reviewed this request", "admin"),
+				},
+			},
 		},
 		{
 			name:      "access-plugin with review; submitted for multiple users",
-			authors:   []string{"admin", "admin2"},
-			states:    []types.RequestState{types.RequestState_PENDING, types.RequestState_APPROVED},
-			submitter: teleport.PresetAccessPluginWithReviewRoleName,
+			submitter: "plugin-reviewer",
 			threshold: true,
+			reviewStates: []reviewState{
+				{
+					author:    "admin",
+					wantState: types.RequestState_PENDING,
+				},
+				{
+					author:    "admin2",
+					wantState: types.RequestState_APPROVED,
+				},
+			},
+		},
+		{
+			name:      "access-plugin with review; submitted for multiple users, but already approved",
+			submitter: "plugin-reviewer",
+			threshold: false,
+			reviewStates: []reviewState{
+				{
+					author:    "admin",
+					wantState: types.RequestState_APPROVED,
+				},
+				{
+					author:  "admin2",
+					wantErr: trace.AccessDenied("the access request has been already approved"),
+				},
+			},
 		},
 	}
 
@@ -2049,28 +2119,28 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 			request, err = requesterClient.CreateAccessRequestV2(ctx, request)
 			require.NoError(t, err)
 
-			// Create plugin author client.
+			// Create plugin reviewer client.
 			pluginClient, err := testPack.tlsServer.NewClient(authtest.TestUser(tt.submitter))
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, pluginClient.Close()) })
 
-			// Plugin author should be able to submit for multiple human reviewers.
-			for i, author := range tt.authors {
+			// Plugin reviewer should be able to submit for multiple human authors.
+			for _, r := range tt.reviewStates {
 				review := types.AccessReviewSubmission{
 					RequestID: request.GetName(),
 					Review: types.AccessReview{
-						Author:        author,
+						Author:        r.author,
 						SubmittedBy:   tt.submitter,
 						ProposedState: types.RequestState_APPROVED,
 					},
 				}
 				updatedRequest, err := pluginClient.SubmitAccessReview(ctx, review)
-				if tt.wantErr != nil {
-					require.ErrorIs(t, err, tt.wantErr)
-					return
+				if r.wantErr != nil {
+					require.ErrorIs(t, err, r.wantErr)
+					continue
 				}
 				require.NoError(t, err)
-				require.Equal(t, tt.states[i], updatedRequest.GetState())
+				require.Equal(t, r.wantState, updatedRequest.GetState())
 			}
 		})
 	}

@@ -3322,6 +3322,7 @@ func AuthorizeAccessReviewRequest(context authz.Context, params types.AccessRevi
 // validateSubmitForUsersPermissions validates that the calling user (eg. plugin) has sufficient permissions
 // to submit reviews for other human users.
 func (a *ServerWithRoles) validateSubmitForUsersPermissions(ctx context.Context, params types.AccessReviewSubmission) error {
+	// Access plugins should have the ability to read/list users.
 	if err := a.authorizeAction(types.KindUser, types.VerbRead); err != nil {
 		return trace.Wrap(err)
 	}
