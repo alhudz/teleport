@@ -17,7 +17,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useTheme } from 'styled-components';
 
 import { Box, Indicator } from 'design';
 import {
@@ -65,8 +64,6 @@ function DocumentSsh({ doc, visible }: PropTypes) {
   });
   const ft = useFileTransfer(tty, session, doc, mfa);
   const { openedDialog: ftOpenedDialog } = useFileTransferContext();
-
-  const theme = useTheme();
 
   function handleCloseFileTransfer() {
     terminalRef.current?.focus();
