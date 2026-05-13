@@ -77,7 +77,9 @@ test.each(nullCases)('renders $attempt as null', testCase => {
   render(<NewCredentials {...props} />);
 
   expect(screen.queryByRole('heading')).not.toBeInTheDocument();
-  expect(screen.queryByText(/Invitation Code Expired/i)).not.toBeInTheDocument();
+  expect(
+    screen.queryByText(/Invitation Code Expired/i)
+  ).not.toBeInTheDocument();
 });
 
 test('renders Register Success on success', () => {

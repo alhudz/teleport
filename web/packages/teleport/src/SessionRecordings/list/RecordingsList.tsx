@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { useDesignSystemContext } from '@gravitational/design-system';
 import {
   useCallback,
   useMemo,
@@ -25,8 +26,6 @@ import {
   type CSSProperties,
 } from 'react';
 import styled, { useTheme } from 'styled-components';
-
-import { useDesignSystemContext } from '@gravitational/design-system';
 
 import { Danger } from 'design/Alert';
 import Box from 'design/Box';
