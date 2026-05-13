@@ -95,7 +95,7 @@ const ColorsComponent = () => {
           {Object.entries(theme.colors.interactive.tonal).map(
             ([intent, colorGroup]) => (
               <Flex gap={4}>
-                {colorGroup.map((background, i) => (
+                {Object.entries(colorGroup).map(([i, background]) => (
                   <SingleColorBox
                     mb="2"
                     path={`theme.colors.interactive.tonal.${intent}[${i}]`}

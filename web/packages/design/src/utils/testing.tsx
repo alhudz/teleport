@@ -189,6 +189,7 @@ export {
   screen,
   fireEvent,
   legacyTheme as theme,
+  testThemeSystem,
   tick,
   render,
   prettyDOM,

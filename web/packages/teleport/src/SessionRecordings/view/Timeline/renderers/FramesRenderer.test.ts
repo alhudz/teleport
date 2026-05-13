@@ -17,7 +17,7 @@
  */
 
 import 'jest-canvas-mock';
-import { theme } from 'design/utils/testing';
+import { testThemeSystem, theme } from 'design/utils/testing';
 
 import { SessionRecordingThumbnail } from 'teleport/services/recordings';
 import type { TimelineRenderContext } from 'teleport/SessionRecordings/view/Timeline/renderers/TimelineCanvasRenderer';
@@ -100,6 +100,7 @@ async function createRenderer(
 
   const renderer = new FramesRenderer(
     ctx,
+    testThemeSystem,
     theme,
     duration,
     frames,
