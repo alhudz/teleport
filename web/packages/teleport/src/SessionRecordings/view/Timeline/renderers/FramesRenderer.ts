@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import type { DesignSystemContext } from '@gravitational/design-system';
 import type { DefaultTheme } from 'styled-components';
 
 import type { SessionRecordingThumbnail } from 'teleport/services/recordings';
@@ -74,6 +75,7 @@ export class FramesRenderer extends TimelineCanvasRenderer {
 
   constructor(
     ctx: CanvasRenderingContext2D,
+    system: DesignSystemContext,
     theme: DefaultTheme,
     duration: number,
     frames: SessionRecordingThumbnail[],
@@ -86,7 +88,7 @@ export class FramesRenderer extends TimelineCanvasRenderer {
   ) {
     super(ctx, theme, duration);
 
-    const svgTheme = generateTerminalSVGStyleTag(theme);
+    const svgTheme = generateTerminalSVGStyleTag(system, theme);
 
     this.frameHeight =
       initialHeight - eventsHeight - RULER_HEIGHT - EVENT_SECTION_PADDING * 2;

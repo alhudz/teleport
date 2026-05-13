@@ -18,7 +18,6 @@
 
 import { LEGACY_THEME_COLORS } from '@gravitational/design-system';
 
-import { sharedColors } from './sharedStyles';
 import type { Theme, ThemeDefinition } from './types';
 
 /**
@@ -36,9 +35,6 @@ import type { Theme, ThemeDefinition } from './types';
 export function resolveTheme(definition: ThemeDefinition): Theme {
   return {
     ...definition,
-    colors: {
-      ...sharedColors,
-      ...LEGACY_THEME_COLORS,
-    },
+    colors: LEGACY_THEME_COLORS,
   };
 }

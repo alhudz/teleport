@@ -16,7 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { resolveTeleportColors } from '@gravitational/design-system';
+import {
+  resolveColorTokens,
+  type DesignSystemContext,
+} from '@gravitational/design-system';
 import { useMemo } from 'react';
 import { type DefaultTheme } from 'styled-components';
 
@@ -37,8 +40,15 @@ export function injectSVGStyles(svg: string, styles: string) {
   return svg.replace(/<svg[^>]*>/, match => `${match}${styleTag}`);
 }
 
-export function generateTerminalSVGStyleTag(theme: DefaultTheme): string {
-  const terminal = resolveTeleportColors(theme.colors.terminal, theme.type);
+export function generateTerminalSVGStyleTag(
+  system: DesignSystemContext,
+  theme: DefaultTheme
+): string {
+  const terminal = resolveColorTokens(
+    system,
+    theme.colors.terminal,
+    theme.type
+  );
 
   const colorMap = [
     terminal.black,

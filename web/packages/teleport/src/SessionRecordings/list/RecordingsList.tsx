@@ -26,6 +26,8 @@ import {
 } from 'react';
 import styled, { useTheme } from 'styled-components';
 
+import { useDesignSystemContext } from '@gravitational/design-system';
+
 import { Danger } from 'design/Alert';
 import Box from 'design/Box';
 import InputSearch from 'design/DataTable/InputSearch';
@@ -144,6 +146,7 @@ export function RecordingsList({
 }: RecordingsListProps) {
   const ctx = useTeleport();
   const theme = useTheme();
+  const system = useDesignSystemContext();
 
   const { clusterId } = useStickyClusterId();
 
@@ -232,8 +235,8 @@ export function RecordingsList({
   );
 
   const thumbnailStyles = useMemo(
-    () => generateTerminalSVGStyleTag(theme),
-    [theme]
+    () => generateTerminalSVGStyleTag(system, theme),
+    [system, theme]
   );
 
   const items = useMemo(

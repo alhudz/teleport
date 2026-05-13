@@ -19,20 +19,7 @@
 import type { LegacyThemeColors } from '@gravitational/design-system';
 
 import { Fonts } from '../fonts';
-import { blueGrey } from '../palette';
 import typography, { fontSizes, fontWeights } from '../typography';
-
-export type SharedColors = {
-  dark: string;
-  light: string;
-  interactionHandle: string;
-  grey: typeof blueGrey;
-  subtle: string;
-  bgTerminal: string;
-  highlight: string;
-  disabled: string;
-  info: string;
-};
 
 export type SharedStyles = {
   sidebarWidth: number;
@@ -76,7 +63,7 @@ export type Theme = {
   type: 'dark' | 'light';
   /** Whether this is a custom theme and not Dark Theme/Light Theme. */
   isCustomTheme: boolean;
-  colors: LegacyThemeColors & SharedColors;
+  colors: LegacyThemeColors;
 } & SharedStyles;
 
 export type ThemeDefinition = Omit<Theme, 'colors'>;

@@ -16,7 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { resolveTeleportColors } from '@gravitational/design-system';
+import {
+  resolveColorTokens,
+  useDesignSystemContext,
+} from '@gravitational/design-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -35,6 +38,7 @@ const doNotBlockKeys = ['?', 't', 'h', 's', 'Escape'];
 export default function Xterm({ tty }: { tty: Tty }) {
   const refContainer = useRef<HTMLDivElement>(null);
   const theme = useTheme();
+  const system = useDesignSystemContext();
   const terminalPlayer = useRef<TerminalPlayer>(undefined);
   const [showSearch, setShowSearch] = useState(false);
 
@@ -59,7 +63,7 @@ export default function Xterm({ tty }: { tty: Tty }) {
       el: refContainer.current,
       fontFamily: theme.fonts.mono,
       fontSize: getPlatformType().isMac ? 12 : 14,
-      theme: resolveTeleportColors(theme.colors.terminal, theme.type),
+      theme: resolveColorTokens(system, theme.colors.terminal, theme.type),
     });
 
     terminalPlayer.current = term;
@@ -97,9 +101,9 @@ export default function Xterm({ tty }: { tty: Tty }) {
 
   useEffect(() => {
     terminalPlayer.current?.updateTheme(
-      resolveTeleportColors(theme.colors.terminal, theme.type)
+      resolveColorTokens(system, theme.colors.terminal, theme.type)
     );
-  }, [theme]);
+  }, [system, theme]);
 
   return (
     <>

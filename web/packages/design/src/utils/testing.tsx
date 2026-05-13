@@ -17,6 +17,11 @@
  */
 
 import '@testing-library/jest-dom';
+import {
+  createThemeSystem,
+  TELEPORT_THEME,
+  ThemeProvider as NewThemeProvider,
+} from '@gravitational/design-system';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   act,
@@ -39,6 +44,8 @@ import { MemoryRouter, useLocation } from 'react-router';
 import { darkTheme, resolveTheme } from 'design/theme';
 import { ConfiguredThemeProvider } from 'design/ThemeProvider';
 
+const testThemeSystem = createThemeSystem(TELEPORT_THEME.config);
+
 export const testQueryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -52,9 +59,11 @@ const legacyTheme = resolveTheme(darkTheme);
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={testQueryClient}>
-      <ConfiguredThemeProvider theme={legacyTheme}>
-        {children}
-      </ConfiguredThemeProvider>
+      <NewThemeProvider system={testThemeSystem} forcedTheme="dark">
+        <ConfiguredThemeProvider theme={legacyTheme}>
+          {children}
+        </ConfiguredThemeProvider>
+      </NewThemeProvider>
     </QueryClientProvider>
   );
 }

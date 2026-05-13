@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import type { DesignSystemContext } from '@gravitational/design-system';
 import type { DefaultTheme } from 'styled-components';
 
 import type {
@@ -88,6 +89,7 @@ export class TimelineRenderer {
     private startTime: number,
     private events: SessionRecordingEvent[],
     private frames: SessionRecordingThumbnail[],
+    private system: DesignSystemContext,
     private theme: DefaultTheme,
     private containerWidth: number,
     private containerHeight: number
@@ -110,6 +112,7 @@ export class TimelineRenderer {
 
     this.framesRenderer = new FramesRenderer(
       this.ctx,
+      this.system,
       this.theme,
       this.duration,
       this.frames,

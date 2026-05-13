@@ -16,7 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { resolveTeleportColors } from '@gravitational/design-system';
+import {
+  resolveColorTokens,
+  useDesignSystemContext,
+} from '@gravitational/design-system';
 import { ITheme } from '@xterm/xterm';
 import React, {
   forwardRef,
@@ -51,10 +54,11 @@ export const Terminal = forwardRef<TerminalRef, TerminalProps>((props, ref) => {
   const termCtrlRef = useRef<XTermCtrl>(undefined);
   const elementRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
+  const system = useDesignSystemContext();
 
   const xtermTheme = useMemo<ITheme>(
-    () => resolveTeleportColors(theme.colors.terminal, theme.type),
-    [theme.colors.terminal, theme.type]
+    () => resolveColorTokens(system, theme.colors.terminal, theme.type),
+    [system, theme.colors.terminal, theme.type]
   );
 
   useImperativeHandle(

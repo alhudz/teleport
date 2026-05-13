@@ -16,7 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { resolveThemeToColors } from '@gravitational/design-system';
+import {
+  resolveColorTokens,
+  useDesignSystemContext,
+} from '@gravitational/design-system';
 import {
   useCallback,
   useEffect,
@@ -129,10 +132,14 @@ export function RecordingTimeline({
   ref,
 }: RecordingTimelineProps) {
   const theme = useTheme();
+  const system = useDesignSystemContext();
 
   const resolvedTheme = useMemo(
-    () => ({ ...theme, colors: resolveThemeToColors(theme.colors) }),
-    [theme]
+    () => ({
+      ...theme,
+      colors: resolveColorTokens(system, theme.colors, theme.type),
+    }),
+    [system, theme]
   );
 
   const [height, setHeight] = useLocalStorage(
@@ -185,11 +192,12 @@ export function RecordingTimeline({
       startTime,
       events,
       frames,
+      system,
       resolvedTheme,
       containerWidth,
       containerHeight
     );
-  }, [duration, events, frames, startTime, resolvedTheme]);
+  }, [duration, events, frames, startTime, system, resolvedTheme]);
 
   useEffect(() => {
     if (!rendererRef.current) {
