@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { resolveThemeToColors } from '@gravitational/design-system';
+import { resolveTeleportColors } from '@gravitational/design-system';
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -82,7 +82,7 @@ export function Terminal(props: TerminalProps) {
       {
         el: refElement.current,
         fontSize: props.fontSize,
-        theme: resolveThemeToColors(theme.colors.terminal),
+        theme: resolveTeleportColors(theme.colors.terminal, theme.type),
         windowsPty: props.windowsPty,
         openContextMenu: props.openContextMenu,
       },
@@ -124,8 +124,9 @@ export function Terminal(props: TerminalProps) {
 
   useEffect(() => {
     if (refCtrl.current) {
-      refCtrl.current.term.options.theme = resolveThemeToColors(
-        theme.colors.terminal
+      refCtrl.current.term.options.theme = resolveTeleportColors(
+        theme.colors.terminal,
+        theme.type
       );
     }
   }, [theme]);

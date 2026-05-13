@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { resolveThemeToColors } from '@gravitational/design-system';
+import { resolveTeleportColors } from '@gravitational/design-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -59,7 +59,7 @@ export default function Xterm({ tty }: { tty: Tty }) {
       el: refContainer.current,
       fontFamily: theme.fonts.mono,
       fontSize: getPlatformType().isMac ? 12 : 14,
-      theme: resolveThemeToColors(theme.colors.terminal),
+      theme: resolveTeleportColors(theme.colors.terminal, theme.type),
     });
 
     terminalPlayer.current = term;
@@ -97,7 +97,7 @@ export default function Xterm({ tty }: { tty: Tty }) {
 
   useEffect(() => {
     terminalPlayer.current?.updateTheme(
-      resolveThemeToColors(theme.colors.terminal)
+      resolveTeleportColors(theme.colors.terminal, theme.type)
     );
   }, [theme]);
 

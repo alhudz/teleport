@@ -16,14 +16,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import { resolveTeleportColors } from '@gravitational/design-system';
 import { ITheme } from '@xterm/xterm';
 import React, {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
 } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { Flex } from 'design';
 import { getPlatformType } from 'design/platform';
@@ -36,8 +38,6 @@ import StyledXterm from '../../StyledXterm';
 
 export interface TerminalProps {
   tty: Tty;
-  fontFamily: string;
-  theme: ITheme;
   // convertEol when set to true cursor will be set to the beginning of the next line with every received new line symbol.
   // This is equivalent to replacing each '\n' with '\r\n'.
   convertEol?: boolean;
@@ -47,29 +47,15 @@ export interface TerminalProps {
   disableAutoFocus?: boolean;
 }
 
-// xterm.js needs literal color values (e.g. hex). After the design system
-// migration, theme.colors.* entries are CSS variable references like
-// `var(--teleport-colors-...)`, so we resolve each one against the document's
-// computed styles to get the concrete value xterm expects.
-function createTerminalTheme(theme: ITheme) {
-  const values: Record<string, string> = {};
-
-  const styles = getComputedStyle(document.documentElement);
-
-  for (const [key, value] of Object.entries(theme)) {
-    const varMatch = value.match(/^var\((--[a-zA-Z0-9-_]+)\)$/);
-
-    if (varMatch) {
-      values[key] = styles.getPropertyValue(varMatch[1]).trim();
-    }
-  }
-
-  return values as ITheme;
-}
-
 export const Terminal = forwardRef<TerminalRef, TerminalProps>((props, ref) => {
   const termCtrlRef = useRef<XTermCtrl>(undefined);
   const elementRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
+
+  const xtermTheme = useMemo<ITheme>(
+    () => resolveTeleportColors(theme.colors.terminal, theme.type),
+    [theme.colors.terminal, theme.type]
+  );
 
   useImperativeHandle(
     ref,
@@ -85,9 +71,9 @@ export const Terminal = forwardRef<TerminalRef, TerminalProps>((props, ref) => {
 
     const termCtrl = new XTermCtrl(props.tty, {
       el: elementRef.current,
-      fontFamily: props.fontFamily,
+      fontFamily: theme.fonts.mono,
       fontSize,
-      theme: createTerminalTheme(props.theme),
+      theme: xtermTheme,
       convertEol: props.convertEol,
     });
 
@@ -117,8 +103,8 @@ export const Terminal = forwardRef<TerminalRef, TerminalProps>((props, ref) => {
   }, []);
 
   useEffect(() => {
-    termCtrlRef.current?.updateTheme(createTerminalTheme(props.theme));
-  }, [props.theme]);
+    termCtrlRef.current?.updateTheme(xtermTheme);
+  }, [xtermTheme]);
 
   useEffect(() => {
     if (!props.disableAutoFocus) {

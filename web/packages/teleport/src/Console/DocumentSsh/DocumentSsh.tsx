@@ -100,8 +100,6 @@ function DocumentSsh({ doc, visible }: PropTypes) {
     <Terminal
       ref={terminalRef}
       tty={tty}
-      fontFamily={theme.fonts.mono}
-      theme={theme.colors.terminal}
       terminalAddons={ref => (
         <>
           <TerminalSearch
