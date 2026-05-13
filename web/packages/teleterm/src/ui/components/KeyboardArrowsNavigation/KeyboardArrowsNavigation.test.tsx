@@ -82,16 +82,16 @@ describe('go through navigation items', () => {
       </KeyboardArrowsNavigation>
     );
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowDown' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowDown' });
     expect(container).toHaveTextContent(getAllItemsText(0, 3));
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowDown' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowDown' });
     expect(container).toHaveTextContent(getAllItemsText(1, 3));
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowDown' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowDown' });
     expect(container).toHaveTextContent(getAllItemsText(2, 3));
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowDown' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowDown' });
     expect(container).toHaveTextContent(getAllItemsText(0, 3));
   });
 
@@ -104,16 +104,16 @@ describe('go through navigation items', () => {
       </KeyboardArrowsNavigation>
     );
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowDown' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowDown' });
     expect(container).toHaveTextContent(getAllItemsText(0, 3));
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowUp' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowUp' });
     expect(container).toHaveTextContent(getAllItemsText(2, 3));
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowUp' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowUp' });
     expect(container).toHaveTextContent(getAllItemsText(1, 3));
 
-    fireEvent.keyDown(container.firstChild, { key: 'ArrowUp' });
+    fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowUp' });
     expect(container).toHaveTextContent(getAllItemsText(0, 3));
   });
 });
@@ -136,8 +136,8 @@ test('fire action on active item when Enter is pressed', () => {
     </KeyboardArrowsNavigation>
   );
 
-  fireEvent.keyDown(container.firstChild, { key: 'ArrowDown' });
-  fireEvent.keyDown(container.firstChild, { key: 'Enter' });
+  fireEvent.keyDown(container.querySelector('div')!, { key: 'ArrowDown' });
+  fireEvent.keyDown(container.querySelector('div')!, { key: 'Enter' });
   expect(firstItemCallback).toHaveBeenCalledWith();
 });
 
