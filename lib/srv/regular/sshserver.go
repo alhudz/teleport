@@ -1910,6 +1910,11 @@ func (s *Server) dispatch(ctx context.Context, ch ssh.Channel, req *ssh.Request,
 			err := s.handleAgentForwardNode(ctx, req, serverContext)
 			if err != nil {
 				serverContext.Logger.WarnContext(ctx, "failure forwarding agent", "error", err)
+				if trace.IsAccessDenied(err) {
+					s.writeStderr(ctx, ch, "Agent forwarding is not permitted for this user.\n")
+				} else {
+					s.writeStderr(ctx, ch, "Agent forwarding failed.\n")
+				}
 			}
 			return nil
 		case sshutils.PuTTYWinadjRequest:
@@ -1957,6 +1962,11 @@ func (s *Server) dispatch(ctx context.Context, ch ssh.Channel, req *ssh.Request,
 		err := s.handleAgentForwardNode(ctx, req, serverContext)
 		if err != nil {
 			serverContext.Logger.WarnContext(ctx, "failure forwarding agent", "error", err)
+			if trace.IsAccessDenied(err) {
+				s.writeStderr(ctx, ch, "Agent forwarding is not permitted for this user.\n")
+			} else {
+				s.writeStderr(ctx, ch, "Agent forwarding failed.\n")
+			}
 		}
 		return nil
 	case sshutils.PuTTYWinadjRequest:
