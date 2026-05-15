@@ -16,12 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {
-  resolveColorTokens,
-  type DesignSystemContext,
-} from '@gravitational/design-system';
 import { useMemo } from 'react';
-import { type DefaultTheme } from 'styled-components';
+
+import type { LegacyThemeColors } from '@gravitational/design-system';
+
+type ResolvedTerminalColors = Record<
+  keyof LegacyThemeColors['terminal'],
+  string | undefined
+>;
 
 export function useThumbnailSvg(svg: string, styles: string) {
   return useMemo(
@@ -41,15 +43,9 @@ export function injectSVGStyles(svg: string, styles: string) {
 }
 
 export function generateTerminalSVGStyleTag(
-  system: DesignSystemContext,
-  theme: DefaultTheme
+  terminal: ResolvedTerminalColors,
+  monoFont: string
 ): string {
-  const terminal = resolveColorTokens(
-    system,
-    theme.colors.terminal,
-    theme.type
-  );
-
   const colorMap = [
     terminal.black,
     terminal.red,
@@ -73,7 +69,7 @@ export function generateTerminalSVGStyleTag(
     '.i { font-style: italic; }',
     '.b { font-weight: bold; }',
     '.u { text-decoration: underline; }',
-    `* { font-family: ${theme.fonts.mono} }`,
+    `* { font-family: ${monoFont} }`,
     `.terminal { fill: ${terminal.foreground}; }`,
     `.bg-default { fill: ${terminal.background}; }`,
   ];

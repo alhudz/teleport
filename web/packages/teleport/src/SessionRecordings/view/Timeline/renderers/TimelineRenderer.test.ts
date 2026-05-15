@@ -17,7 +17,7 @@
  */
 
 import 'jest-canvas-mock';
-import { testThemeSystem, theme } from 'design/utils/testing';
+import { theme } from 'design/utils/testing';
 
 import {
   SessionRecordingEventType,
@@ -114,7 +114,6 @@ function createRenderer(
     metadata.startTime,
     metadata.events,
     frames,
-    testThemeSystem,
     theme,
     containerWidth,
     containerHeight

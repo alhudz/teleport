@@ -16,7 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { useDesignSystemContext } from '@gravitational/design-system';
+import {
+  resolveColorTokens,
+  useDesignSystemContext,
+} from '@gravitational/design-system';
 import {
   useCallback,
   useMemo,
@@ -234,7 +237,11 @@ export function RecordingsList({
   );
 
   const thumbnailStyles = useMemo(
-    () => generateTerminalSVGStyleTag(system, theme),
+    () =>
+      generateTerminalSVGStyleTag(
+        resolveColorTokens(system, theme.colors.terminal, theme.type),
+        theme.fonts.mono
+      ),
     [system, theme]
   );
 

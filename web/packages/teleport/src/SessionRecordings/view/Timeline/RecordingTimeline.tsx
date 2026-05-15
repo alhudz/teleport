@@ -192,12 +192,11 @@ export function RecordingTimeline({
       startTime,
       events,
       frames,
-      system,
       resolvedTheme,
       containerWidth,
       containerHeight
     );
-  }, [duration, events, frames, startTime, system, resolvedTheme]);
+  }, [duration, events, frames, startTime, resolvedTheme]);
 
   useEffect(() => {
     if (!rendererRef.current) {
