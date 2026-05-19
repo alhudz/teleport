@@ -579,7 +579,7 @@ func NewAppServersWatcher(ctx context.Context, cfg AppServersWatcherConfig) (*Ge
 	w, err := NewGenericResourceWatcher(ctx, GenericWatcherConfig[types.AppServer, readonly.AppServer]{
 		ResourceWatcherConfig: cfg.ResourceWatcherConfig,
 		ResourceKind:          types.KindAppServer,
-		ResourceKey:           func(r types.AppServer) string {
+		ResourceKey: func(r types.AppServer) string {
 			// the host ID is guaranteed not to contain "/"
 			return r.GetHostID() + "/" + r.GetName()
 		},
