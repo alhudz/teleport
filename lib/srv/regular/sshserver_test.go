@@ -1255,6 +1255,10 @@ func TestTCPIPForward(t *testing.T) {
 			},
 			HostKeyCallback: ssh.FixedHostKey(f.signer.PublicKey()),
 		}
+		aliceConn, err := apissh.Dial(t.Context(), "tcp", f.ssh.srvAddress, aliceCfg)
+		require.NoError(t, err)
+		defer aliceConn.Close()
+
 		bobUp, err := newUpack(t.Context(), f.testSrv, "bob", []string{f.user}, wildcardAllow)
 		require.NoError(t, err)
 		bobCfg := apissh.ClientConfig{
@@ -1267,9 +1271,6 @@ func TestTCPIPForward(t *testing.T) {
 			HostKeyCallback: ssh.FixedHostKey(f.signer.PublicKey()),
 		}
 
-		aliceConn, err := apissh.Dial(t.Context(), "tcp", f.ssh.srvAddress, aliceCfg)
-		require.NoError(t, err)
-		defer aliceConn.Close()
 		bobConn, err := apissh.Dial(t.Context(), "tcp", f.ssh.srvAddress, bobCfg)
 		require.NoError(t, err)
 		defer bobConn.Close()
@@ -1277,6 +1278,7 @@ func TestTCPIPForward(t *testing.T) {
 		listener, err := aliceConn.Listen("tcp", "localhost:0")
 		require.NoError(t, err)
 		t.Cleanup(func() { listener.Close() })
+
 		_, port, err := net.SplitHostPort(listener.Addr().String())
 		require.NoError(t, err)
 		portInt, err := strconv.Atoi(port)
@@ -1285,7 +1287,6 @@ func TestTCPIPForward(t *testing.T) {
 			Addr: "localhost",
 			Port: uint32(portInt),
 		})
-
 		ok, _, err := bobConn.SendRequest(t.Context(), teleport.CancelTCPIPForwardRequest, true, listenReq)
 		require.NoError(t, err)
 		require.False(t, ok, "bob should not be able to close another user's listener")
