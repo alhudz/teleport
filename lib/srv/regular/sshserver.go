@@ -269,6 +269,10 @@ type Server struct {
 	immutableLabels map[string]string
 }
 
+func remoteForwardingMapKey(scx *srv.ServerContext) string {
+	return scx.Identity.TeleportUser + "/" + scx.SrcAddr
+}
+
 // EventMetadata returns metadata about the server.
 func (s *Server) EventMetadata() apievents.ServerMetadata {
 	serverInfo := s.GetInfo()
@@ -2493,12 +2497,13 @@ func (s *Server) handleTCPIPForwardRequest(ctx context.Context, ccx *sshutils.Co
 		}
 	}
 
-	s.remoteForwardingMap.Store(scx.SrcAddr, listener)
+	key := remoteForwardingMapKey(scx)
+	s.remoteForwardingMap.Store(key, listener)
 
 	// Close the listener once the connection is closed, if it hasn't
 	// been closed already via a cancel-tcpip-forward request.
 	ccx.AddCloser(utils.CloseFunc(func() error {
-		listener, ok := s.remoteForwardingMap.LoadAndDelete(scx.SrcAddr)
+		listener, ok := s.remoteForwardingMap.LoadAndDelete(key)
 		if ok {
 			return trace.Wrap(listener.Close())
 		}
@@ -2516,7 +2521,7 @@ func (s *Server) handleCancelTCPIPForwardRequest(ctx context.Context, ccx *sshut
 		return trace.Wrap(err)
 	}
 	defer scx.Close()
-	listener, ok := s.remoteForwardingMap.LoadAndDelete(scx.SrcAddr)
+	listener, ok := s.remoteForwardingMap.LoadAndDelete(remoteForwardingMapKey(scx))
 	if !ok {
 		return trace.NotFound("no remote forwarding listener at %v", scx.SrcAddr)
 	}
