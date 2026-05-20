@@ -90,6 +90,8 @@ int BPF_PROG(security_file_open, struct file *f)
         return 0;
     }
 
+    info->valid = false;
+
     if (bpf_d_path(&f->f_path, (char *)info->file_path, sizeof(info->file_path)) > 0) {
         info->valid = true;
     }

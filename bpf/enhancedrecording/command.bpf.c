@@ -53,7 +53,6 @@ struct inflight_exec_t {
     bool valid;
     u8 filename[FILENAMESIZE];
     u64 argv;
-    bool emitted;
 };
 
 struct {
@@ -98,7 +97,6 @@ static int enter_execve(const char *filename, const char *const *argv)
         info->filename[0] = 0;
     }
     info->argv = (u64)argv;
-    info->emitted = false;
 
     return 0;
 }
@@ -152,6 +150,11 @@ int BPF_PROG(bprm_execve_exit, struct linux_binprm *bprm, int ret)
         return 0;
     }
 
+    // Mark consumed so exit_execve won't also handle this event.
+    if (info != NULL) {
+        info->valid = false;
+    }
+
     struct data_t *data = bpf_ringbuf_reserve(&execve_events, sizeof(*data), 0);
     if (!data) {
         INCR_COUNTER(lost);
@@ -190,10 +193,6 @@ int BPF_PROG(bprm_execve_exit, struct linux_binprm *bprm, int ret)
     bpf_printk("bprm_execve_exit: emitted event");
     bpf_ringbuf_submit(data, 0);
 
-    if (info && info->valid) {
-        info->emitted = true;
-    }
-
     return 0;
 }
 
@@ -213,16 +212,20 @@ static int exit_execve(int retCode)
         bpf_printk("exit_execve: no inflight_exec_t found, not emitting event");
         return 0;
     }
-    if (!info->valid || info->emitted) {
-        bpf_printk("execve_exit: not emitting event: valid=%d emitted=%d", info->valid, info->emitted);
-        goto out;
+    if (!info->valid) {
+        bpf_printk("execve_exit: not emitting event");
+        return 0;
     }
+
+    // Mark consumed so a subsequent open on the same thread doesn't 
+    // pick up stale data.
+    info->valid = false;
 
     struct data_t *data = bpf_ringbuf_reserve(&execve_events, sizeof(*data), 0);
     if (!data) {
         INCR_COUNTER(lost);
         bpf_printk("execve_events ring buffer full");
-        goto out;
+        return 0;
     }
     data->args_truncated = false;
 
@@ -274,11 +277,6 @@ static int exit_execve(int retCode)
 
     bpf_printk("execve_exit: emitted event");
     bpf_ringbuf_submit(data, 0);
-
-out:
-    // Mark consumed so a subsequent open on the same thread doesn't 
-    // pick up stale data.
-    info->valid = false;
 
     return 0;
 }
