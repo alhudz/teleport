@@ -3296,17 +3296,11 @@ func (a *ServerWithRoles) SetAccessRequestState(ctx context.Context, params type
 
 // AuthorizeAccessReviewRequest checks if the current user is allowed to submit the given access review request.
 func AuthorizeAccessReviewRequest(context authz.Context, params types.AccessReviewSubmission) error {
-	// A plugin user can submit the review request on behalf of a human review author.
-	submitter := params.Review.Author
-	if params.Review.SubmittedBy != "" {
-		submitter = params.Review.SubmittedBy
-	}
-
-	// submitter must match calling user, except in the case of the builtin admin role. we make this
+	// review author must match calling user, except in the case of the builtin admin role. we make this
 	// exception in order to allow for convenient testing with local tctl connections.
 	if !authz.HasBuiltinRole(context, string(types.RoleAdmin)) {
-		if submitter != context.User.GetName() {
-			return trace.AccessDenied("user %q cannot submit reviews on behalf of %q", context.User.GetName(), submitter)
+		if params.Review.Author != context.User.GetName() {
+			return trace.AccessDenied("user %q cannot submit reviews on behalf of %q", context.User.GetName(), params.Review.Author)
 		}
 
 		// MaybeCanReviewRequests returns false positives, but it will tell us
@@ -3319,9 +3313,13 @@ func AuthorizeAccessReviewRequest(context authz.Context, params types.AccessRevi
 	return nil
 }
 
-// validateSubmitForUsersPermissions validates that the calling user (eg. plugin) has sufficient permissions
+// AuthorizeAccessReviewRequestAsPlugin validates that the calling user (eg. teleport access plugin) has sufficient permissions
 // to submit reviews for other human users.
-func (a *ServerWithRoles) validateSubmitForUsersPermissions(ctx context.Context, params types.AccessReviewSubmission) error {
+func (a *ServerWithRoles) AuthorizeAccessReviewRequestAsPlugin(ctx context.Context, params types.AccessReviewSubmission) error {
+	if params.Review.SubmittedBy != a.context.User.GetName() {
+		return trace.AccessDenied("user %q cannot submit reviews on behalf of %q", a.context.User.GetName(), params.Review.SubmittedBy)
+	}
+
 	// Access plugins should have the ability to read/list users.
 	if err := a.authorizeAction(types.KindUser, types.VerbRead); err != nil {
 		return trace.Wrap(err)
@@ -3363,15 +3361,21 @@ func (a *ServerWithRoles) SubmitAccessReview(ctx context.Context, submission typ
 		submission.Review.Author = a.context.User.GetName()
 	}
 
-	// Check if the current user is allowed to submit the given access review request.
-	if err := AuthorizeAccessReviewRequest(a.context, submission); err != nil {
-		return nil, trace.Wrap(err)
-	}
+	// If the review is submitted by a plugin on behalf of a human user,
+	// we must check the plugin has proper permissions to submit for other users.
+	if submission.Review.IsSubmittedByPlugin {
+		// plugin submitter defaults to username of caller.
+		if submission.Review.SubmittedBy == "" {
+			submission.Review.SubmittedBy = a.context.User.GetName()
+		}
 
-	// If a plugin identity is submitting the review request for another human user,
-	// must have valid `submit_for_users` permissions.
-	if submission.Review.SubmittedBy != "" {
-		if err := a.validateSubmitForUsersPermissions(ctx, submission); err != nil {
+		if err := a.AuthorizeAccessReviewRequestAsPlugin(ctx, submission); err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		submission.Review.SubmittedBy = ""
+
+		if err := AuthorizeAccessReviewRequest(a.context, submission); err != nil {
 			return nil, trace.Wrap(err)
 		}
 	}
@@ -3387,8 +3391,7 @@ func (a *ServerWithRoles) SubmitAccessReview(ctx context.Context, submission typ
 	//
 	// If the calling user is a plugin submitting for another user,
 	// the author field will not match the calling user.
-	// Instead, we enforce that the `SubmittedBy` field matches the calling user,
-	// and validate the plugin user's `submit_for_users` RBAC permissions.
+	// Instead, we enforce that a plugin user has proper `submit_for_users` permissions.
 	identity := a.context.Identity.GetIdentity()
 	return a.authServer.submitAccessReview(ctx, submission, &identity)
 }

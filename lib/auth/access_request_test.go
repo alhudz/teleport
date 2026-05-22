@@ -2006,12 +2006,12 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 	tests := []struct {
 		name         string
 		reviewStates []reviewState
-		submitter    string // plugin identity submitting the review
+		reviewer     string // plugin identity submitting the review request to Auth Service
 		threshold    bool   // apply a review threshold or not
 	}{
 		{
-			name:      "access-plugin without review",
-			submitter: "plugin-no-review",
+			name:     "access-plugin without review",
+			reviewer: "plugin-no-review",
 			reviewStates: []reviewState{
 				{
 					author:  "admin",
@@ -2020,8 +2020,8 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 			},
 		},
 		{
-			name:      "access-plugin with review; submitted for admin",
-			submitter: "plugin-reviewer",
+			name:     "access-plugin with review; submitted for admin",
+			reviewer: "plugin-reviewer",
 			reviewStates: []reviewState{
 				{
 					author:    "admin",
@@ -2030,8 +2030,8 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 			},
 		},
 		{
-			name:      "access-plugin with review; submitted for nobody",
-			submitter: "plugin-reviewer",
+			name:     "access-plugin with review; submitted for nobody",
+			reviewer: "plugin-reviewer",
 			reviewStates: []reviewState{
 				{
 					author:  "nobody",
@@ -2040,8 +2040,8 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 			},
 		},
 		{
-			name:      "access-plugin with review; submitted for non-existent user",
-			submitter: "plugin-reviewer",
+			name:     "access-plugin with review; submitted for non-existent user",
+			reviewer: "plugin-reviewer",
 			reviewStates: []reviewState{
 				{
 					author: "fake-user",
@@ -2054,7 +2054,7 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 		},
 		{
 			name:      "access-plugin with review; submitted for same user",
-			submitter: "plugin-reviewer",
+			reviewer:  "plugin-reviewer",
 			threshold: true,
 			reviewStates: []reviewState{
 				{
@@ -2069,7 +2069,7 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 		},
 		{
 			name:      "access-plugin with review; submitted for multiple users",
-			submitter: "plugin-reviewer",
+			reviewer:  "plugin-reviewer",
 			threshold: true,
 			reviewStates: []reviewState{
 				{
@@ -2084,7 +2084,7 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 		},
 		{
 			name:      "access-plugin with review; submitted for multiple users, but already approved",
-			submitter: "plugin-reviewer",
+			reviewer:  "plugin-reviewer",
 			threshold: false,
 			reviewStates: []reviewState{
 				{
@@ -2120,7 +2120,7 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 			require.NoError(t, err)
 
 			// Create plugin reviewer client.
-			pluginClient, err := testPack.tlsServer.NewClient(authtest.TestUser(tt.submitter))
+			pluginClient, err := testPack.tlsServer.NewClient(authtest.TestUser(tt.reviewer))
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, pluginClient.Close()) })
 
@@ -2129,9 +2129,9 @@ func testSubmitAccessReview_SubmitForUsers(t *testing.T, testPack *accessRequest
 				review := types.AccessReviewSubmission{
 					RequestID: request.GetName(),
 					Review: types.AccessReview{
-						Author:        r.author,
-						SubmittedBy:   tt.submitter,
-						ProposedState: types.RequestState_APPROVED,
+						Author:              r.author,
+						IsSubmittedByPlugin: true,
+						ProposedState:       types.RequestState_APPROVED,
 					},
 				}
 				updatedRequest, err := pluginClient.SubmitAccessReview(ctx, review)

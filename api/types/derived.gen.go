@@ -1358,7 +1358,8 @@ func deriveTeleportEqual_77(this, that *AccessReview) bool {
 			deriveTeleportEqual_115(this.ThresholdIndexes, that.ThresholdIndexes) &&
 			deriveTeleportEqual_38(this.AccessList, that.AccessList) &&
 			((this.AssumeStartTime == nil && that.AssumeStartTime == nil) || (this.AssumeStartTime != nil && that.AssumeStartTime != nil && (*(this.AssumeStartTime)).Equal(*(that.AssumeStartTime)))) &&
-			this.SubmittedBy == that.SubmittedBy
+			this.SubmittedBy == that.SubmittedBy &&
+			this.IsSubmittedByPlugin == that.IsSubmittedByPlugin
 }
 
 // deriveTeleportEqual_78 returns whether this and that are equal.
