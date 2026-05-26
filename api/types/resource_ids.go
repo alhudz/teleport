@@ -122,16 +122,28 @@ func ResourceIDsToResourceAccessIDs(ids []ResourceID) []ResourceAccessID {
 }
 
 // CombineAsResourceAccessIDs converts plain [ResourceID]s to [ResourceAccessID]s
-// and combines them with existing [ResourceAccessID]s into a single slice.
+// and merges them with existing [ResourceAccessID]s. The result is deduplicated,
+// with [ResourceAccessID] duplicates taking precedence.
 func CombineAsResourceAccessIDs(ids []ResourceID, accessIDs []ResourceAccessID) []ResourceAccessID {
 	if ids == nil && accessIDs == nil {
 		return nil
 	}
-	totalLen := len(ids) + len(accessIDs)
-	zipped := make([]ResourceAccessID, 0, totalLen)
-	zipped = append(zipped, ResourceIDsToResourceAccessIDs(ids)...)
-	zipped = append(zipped, accessIDs...)
-	return zipped
+	// Process constrained ids first so they take precedence.
+	seen := make(map[string]struct{}, len(ids)+len(accessIDs))
+	result := make([]ResourceAccessID, 0, len(ids)+len(accessIDs))
+	for _, raid := range accessIDs {
+		key := ResourceIDToString(raid.GetResourceID())
+		seen[key] = struct{}{}
+		result = append(result, raid)
+	}
+	for _, id := range ids {
+		key := ResourceIDToString(id)
+		if _, exists := seen[key]; !exists {
+			seen[key] = struct{}{}
+			result = append(result, ResourceAccessID{Id: id})
+		}
+	}
+	return result
 }
 
 // UnwrapResourceAccessIDs separates a slice of [ResourceAccessID]s back into plain
