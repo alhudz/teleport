@@ -239,6 +239,7 @@ export const eventCodes = {
   BOT_JOIN_FAILURE: 'TJ001E',
   INSTANCE_JOIN: 'TJ002I',
   INSTANCE_JOIN_FAILURE: 'TJ002E',
+  INSTANCE_JOIN_LIMIT: 'TJ002L',
   BOT_CREATED: 'TB001I',
   BOT_UPDATED: 'TB002I',
   BOT_DELETED: 'TB003I',
@@ -402,8 +403,6 @@ export const eventCodes = {
   SCOPED_TOKEN_UPSERT: 'TST001I',
   SCOPED_TOKEN_UPDATE: 'TST002I',
   SCOPED_TOKEN_DELETE: 'TST003I',
-  SCOPED_TOKEN_USE: 'TST004I',
-  SCOPED_TOKEN_FAILURE: 'TST004E',
 } as const;
 
 /**
@@ -1476,6 +1475,8 @@ export type RawEvents = {
       node_name: string;
       method: string;
       role: string;
+      roles: string[];
+      scope: string;
     }
   >;
   [eventCodes.INSTANCE_JOIN_FAILURE]: RawEvent<
@@ -1484,6 +1485,18 @@ export type RawEvents = {
       node_name: string;
       method: string;
       role: string;
+      roles: string[];
+      scope: string;
+    }
+  >;
+  [eventCodes.INSTANCE_JOIN_LIMIT]: RawEvent<
+    typeof eventCodes.INSTANCE_JOIN_LIMIT,
+    {
+      node_name: string;
+      method: string;
+      role: string;
+      roles: string[];
+      scope: string;
     }
   >;
   [eventCodes.BOT_CREATED]: RawEvent<typeof eventCodes.BOT_CREATED, HasName>;
@@ -2391,26 +2404,6 @@ export type RawEvents = {
     typeof eventCodes.SCOPED_TOKEN_DELETE,
     {
       name: string;
-    }
-  >;
-  [eventCodes.SCOPED_TOKEN_USE]: RawEvent<
-    typeof eventCodes.SCOPED_TOKEN_USE,
-    {
-      name: string;
-      scope: string;
-      assigned_scope: string;
-      host_id: string;
-      join_method: string;
-    }
-  >;
-  [eventCodes.SCOPED_TOKEN_FAILURE]: RawEvent<
-    typeof eventCodes.SCOPED_TOKEN_FAILURE,
-    {
-      name: string;
-      scope: string;
-      assigned_scope: string;
-      host_id: string;
-      join_method: string;
     }
   >;
 };
