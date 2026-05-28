@@ -19,130 +19,132 @@
 package resources
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/gravitational/trace"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/gravitational/teleport/api/client"
 	"github.com/gravitational/teleport/api/client/proto"
-	"github.com/gravitational/teleport/entitlements"
 	"github.com/gravitational/teleport/integrations/operator/controllers"
-	"github.com/gravitational/teleport/lib/modules"
 )
 
+// ReconcilerFactory is a function that creates a reconciler from Kubernetes and Teleport clients.
 type ReconcilerFactory func(client kclient.Client, tClient *client.Client) (controllers.Reconciler, error)
 
-type reconcilerFactory struct {
-	cr      string
-	factory ReconcilerFactory
+// Add new reconcilers here.
+var supportedReconcilers = []ReconcilerFactory{
+	NewAccessListReconciler,
+	NewAccessMonitoringRuleV1Reconciler,
+	NewAppV3Reconciler,
+	NewAutoUpdateConfigV1Reconciler,
+	NewAutoUpdateVersionV1Reconciler,
+	NewBotV1Reconciler,
+	NewDatabaseV3Reconciler,
+	NewGithubConnectorReconciler,
+	NewInferenceModelReconciler,
+	NewInferencePolicyReconciler,
+	NewInferenceSecretReconciler,
+	NewLockV2Reconciler,
+	NewLoginRuleReconciler,
+	NewOIDCConnectorReconciler,
+	NewOktaImportRuleReconciler,
+	NewOpenSSHEICEServerV2Reconciler,
+	NewOpenSSHServerV2Reconciler,
+	NewProvisionTokenReconciler,
+	NewRetrievalModelV1Reconciler,
+	NewRoleReconciler,
+	NewRoleV6Reconciler,
+	NewRoleV7Reconciler,
+	NewRoleV8Reconciler,
+	NewSAMLConnectorReconciler,
+	NewSAMLIdPServiceProviderV1Reconciler,
+	NewScopedRoleV1Reconciler,
+	NewScopedRoleAssignmentV1Reconciler,
+	NewScopedTokenV1Reconciler,
+	NewTrustedClusterV2Reconciler,
+	NewUserReconciler,
+	NewWorkloadIdentityV1Reconciler,
 }
 
-// SetupAllControllers sets up all controllers
-func SetupAllControllers(log logr.Logger, mgr manager.Manager, teleportClient *client.Client, features *proto.Features, scoped bool) error {
-	kubeClient := mgr.GetClient()
-	for _, reconciler := range enabledReconcilers(log, features, scoped) {
-		r, err := reconciler.factory(kubeClient, teleportClient)
-		if err != nil {
-			return trace.Wrap(err, "failed to create controller for %s", reconciler.cr)
+// SetupAllControllers sets up all controllers.
+// A reconciler is enabled if:
+// - its CRD exists in the clusters (supports a newer operator running against odler CRDs)
+// - the operator is not running in scoped mode OR the operator is in scoped mode and the reconciler is scoped.
+// - the reconciler support the cluster features (e.g. don't start a enterprise reconciler against an OSS cluster)
+func SetupAllControllers(config Config, mgr manager.Manager) error {
+	reconcilers, err := filterEnabledReconcilers(config, supportedReconcilers)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	// Setup all enabled reconcilers.
+	if len(reconcilers) == 0 {
+		return trace.NotFound("No reconciler enabled, this is likely a mistake")
+	}
+	for _, reconciler := range reconcilers {
+		if err := reconciler.SetupWithManager(mgr); err != nil {
+			return trace.Wrap(err, "failed to setup controller for: %s", reconciler.GVK().Kind)
 		}
-		err = r.SetupWithManager(mgr)
-		if err != nil {
-			return trace.Wrap(err, "failed to setup controller for: %s", reconciler.cr)
-		}
+		config.Log.Info("Reconciler setup successfully", "kubernetes_kind", reconciler.GVK().Kind, "teleport_kind", reconciler.TeleportKind())
 	}
 
 	return nil
 }
 
-func enabledReconcilers(log logr.Logger, features *proto.Features, scoped bool) []reconcilerFactory {
-	var reconcilers []reconcilerFactory
-
-	// We always run
-	reconcilers = append(reconcilers, scopedReconcilers(log, features)...)
-	if scoped {
-		log.Info("Running in scoped mode. Unscoped resources will not be reconciled.")
-	} else {
-		reconcilers = append(reconcilers, unscopedReconcilers(log, features)...)
-	}
-	return reconcilers
+// Config contains the configuration required to setup the resource reconcilers.
+type Config struct {
+	// Log is the logger used to send logs regarding the controller setup.
+	// The controllers themselves use the logger from the query context.
+	Log logr.Logger
+	// TeleportClient is passed to controllers so they can interact with the Teleport cluster.
+	TeleportClient *client.Client
+	// KubeClient is used by the setup process to detect which CRDs are deployed in the cluster.
+	// This is also passed to the controllers so they can get resources and write their status back.
+	KubeClient kclient.Client
+	// Scoped indicates that the operator is running in scoped mode.
+	Scoped bool
+	// Features are the features advertised by the Teleport cluster.
+	// This is used to know which reconcilers should be started.
+	Features *proto.Features
 }
 
-func scopedReconcilers(log logr.Logger, features *proto.Features) []reconcilerFactory {
-	return []reconcilerFactory{
-		{"TeleportScopedTokenV1", NewScopedTokenV1Reconciler},
-		{"TeleportScopedRoleV1", NewScopedRoleV1Reconciler},
-		{"TeleportScopedRoleAssignmentV1", NewScopedRoleAssignmentV1Reconciler},
-	}
-}
-
-func unscopedReconcilers(log logr.Logger, features *proto.Features) []reconcilerFactory {
-	reconcilers := []reconcilerFactory{
-		{"TeleportRole", NewRoleReconciler},
-		{"TeleportRoleV6", NewRoleV6Reconciler},
-		{"TeleportRoleV7", NewRoleV7Reconciler},
-		{"TeleportRoleV8", NewRoleV8Reconciler},
-		{"TeleportUser", NewUserReconciler},
-		{"TeleportGithubConnector", NewGithubConnectorReconciler},
-		{"TeleportLockV2", NewLockV2Reconciler},
-		{"TeleportProvisionToken", NewProvisionTokenReconciler},
-		{"TeleportOpenSSHServerV2", NewOpenSSHServerV2Reconciler},
-		{"TeleportOpenSSHEICEServerV2", NewOpenSSHEICEServerV2Reconciler},
-		{"TeleportTrustedClusterV2", NewTrustedClusterV2Reconciler},
-		{"TeleportBotV1", NewBotV1Reconciler},
-		{"TeleportWorkloadIdentityV1", NewWorkloadIdentityV1Reconciler},
-		{"TeleportAutoupdateConfigV1", NewAutoUpdateConfigV1Reconciler},
-		{"TeleportAutoupdateVersionV1", NewAutoUpdateVersionV1Reconciler},
-		{"TeleportAppV3", NewAppV3Reconciler},
-		{"TeleportDatabaseV3", NewDatabaseV3Reconciler},
-		{"TeleportAccessMonitoringRuleV1", NewAccessMonitoringRuleV1Reconciler},
-		// Although the WebUi doesn't show "SAML Application (Generic)" for
-		// oss builds when adding a resource due to the BuildType() check in
-		// lib/auth/auth_with_roles.go, the API allows creating
-		// saml_idp_service_provider objects using tctl for any build. We
-		// therefore enable it here unconditionally to mirror tctl behavior.
-		{"TeleportSAMLIdPServiceProviderV1", NewSAMLIdPServiceProviderV1Reconciler},
+func filterEnabledReconcilers(c Config, reconcilers []ReconcilerFactory) ([]controllers.Reconciler, error) {
+	// list CRDs deployed in the cluster
+	var existingCRDs apiextv1.CustomResourceDefinitionList
+	if err := c.KubeClient.List(context.TODO(), &existingCRDs); err != nil {
+		return nil, trace.Wrap(err, "listing existing CRDs")
 	}
 
-	oidc := modules.GetProtoEntitlement(features, entitlements.OIDC)
-	saml := modules.GetProtoEntitlement(features, entitlements.SAML)
-	policy := modules.GetProtoEntitlement(features, entitlements.Policy)
-
-	if oidc.Enabled {
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportOIDCConnector", NewOIDCConnectorReconciler})
-	} else {
-		log.Info("OIDC connectors are only available in Teleport Enterprise edition. TeleportOIDCConnector resources won't be reconciled")
+	var enabledReconcilers []controllers.Reconciler
+	crds := make(map[string]struct{})
+	for _, crd := range existingCRDs.Items {
+		crds[crd.Name] = struct{}{}
 	}
 
-	if saml.Enabled {
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportSAMLConnector", NewSAMLConnectorReconciler})
-	} else {
-		log.Info("SAML connectors are only available in Teleport Enterprise edition. TeleportSAMLConnector resources won't be reconciled")
+	// Check which reconcilers can and should be enabled.
+	for i, factory := range reconcilers {
+		reconciler, err := factory(c.KubeClient, c.TeleportClient)
+		if err != nil {
+			return nil, trace.Wrap(err, "creating reconciler", "index", i)
+		}
+		if _, ok := crds[reconciler.GVK().Kind]; !ok {
+			c.Log.Info("CRD %q not deployed in the cluster, reconciler skipped")
+			continue
+		}
+		if c.Scoped && !reconciler.Scoped() {
+			if _, ok := crds[reconciler.GVK().Kind]; !ok {
+				c.Log.Info("CRD %q deployed but operator running in scoped mode, CRD will not be reconciled")
+			}
+			continue
+		}
+		if !reconciler.CheckFeatures(c.Features) {
+			continue
+		}
+		enabledReconcilers = append(enabledReconcilers, reconciler)
 	}
-
-	if policy.Enabled {
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportInferenceModel", NewInferenceModelReconciler})
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportInferencePolicy", NewInferencePolicyReconciler})
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportInferenceSecret", NewInferenceSecretReconciler})
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportRetrievalModelV1", NewRetrievalModelV1Reconciler})
-	} else {
-		log.Info("Inference Models, Policies, Secrets, and RetrievalModel are only available in Teleport Enterprise edition. TeleportInferenceModel, TeleportInferencePolicy, TeleportInferenceSecret, and TeleportRetrievalModelV1 resources won't be reconciled")
-	}
-
-	// Login Rules are enterprise-only but there is no specific feature flag for them.
-	if oidc.Enabled || saml.Enabled {
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportLoginRule", NewLoginRuleReconciler})
-	} else {
-		log.Info("Login Rules are only available in Teleport Enterprise edition. TeleportLoginRule resources won't be reconciled")
-	}
-
-	// AccessLists, OktaImports are enterprise-only but there is no specific feature-flag for them.
-	if features.GetAdvancedAccessWorkflows() {
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportAccessList", NewAccessListReconciler})
-		reconcilers = append(reconcilers, reconcilerFactory{"TeleportOktaImportRule", NewOktaImportRuleReconciler})
-	} else {
-		log.Info("The cluster license does not contain advanced workflows. TeleportAccessList, TeleportOktaImportRule resources won't be reconciled")
-	}
-
-	return reconcilers
+	return enabledReconcilers, nil
 }

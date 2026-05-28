@@ -133,7 +133,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = resources.SetupAllControllers(setupLog, mgr, client, pong.ServerFeatures, config.scoped); err != nil {
+	if err = resources.SetupAllControllers(
+		resources.Config{
+			Log:            setupLog,
+			TeleportClient: client,
+			KubeClient:     mgr.GetClient(),
+			Scoped:         config.scoped,
+			Features:       pong.ServerFeatures,
+		}, mgr); err != nil {
 		setupLog.Error(err, "failed to setup controllers")
 		os.Exit(1)
 	}

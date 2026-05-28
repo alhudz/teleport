@@ -234,8 +234,13 @@ func (s *TestSetup) StartKubernetesOperator(t *testing.T) {
 	pong, err := s.TeleportClient.Ping(context.Background())
 	require.NoError(t, err)
 
-	const scoped = false
-	err = resources.SetupAllControllers(setupLog, k8sManager, s.TeleportClient, pong.ServerFeatures, scoped)
+	err = resources.SetupAllControllers(resources.Config{
+		Log:            setupLog,
+		TeleportClient: s.TeleportClient,
+		KubeClient:     k8sManager.GetClient(),
+		Scoped:         false,
+		Features:       pong.ServerFeatures,
+	}, k8sManager)
 	require.NoError(t, err)
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
