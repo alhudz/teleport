@@ -32,25 +32,24 @@ spec:
 `,
 			expected: `resource "teleport_role" "manager" {
   version = "v7"
+
   metadata = {
     name = "manager"
   }
 
   spec = {
     allow = {
-      rules = [
-        {
-          resources = ["user", "role"]
-          verbs     = ["list", "read"]
-        },
-        {
-          resources = ["session", "event"]
-          verbs     = ["list", "read"]
-        }
-      ]
+      rules = [{
+        resources = ["user", "role"]
+        verbs     = ["list", "read"]
+        }, {
+        resources = ["session", "event"]
+        verbs     = ["list", "read"]
+      }]
     }
   }
-}`,
+}
+`,
 		},
 	}
 

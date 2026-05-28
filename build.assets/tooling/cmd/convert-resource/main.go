@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/ghodss/yaml"
-	"github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
@@ -35,12 +35,15 @@ func convertToTerraform(w io.Writer, r io.Reader) error {
 	}
 
 	var res tfgen.Resource
+	// Unmarshal the JSON into the relevant Go type. Don't set defaults
+	// since we want to avoid including irrelevant fields from the output.
 	switch o.Kind {
 	case "role":
-		res, err = services.UnmarshalRole(jsonbytes)
-		if err != nil {
+		var role types.RoleV6
+		if err = utils.FastUnmarshal(jsonbytes, &role); err != nil {
 			return trace.Errorf("invalid Teleport role in the input %w", err)
 		}
+		res = &role
 	case "user":
 	case "trusted_cluster":
 	case "github":
