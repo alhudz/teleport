@@ -269,6 +269,7 @@ computed_fields:
     # Cluster networking
     - "ClusterNetworkingConfigV2.Spec.KeepAliveCountMax"
     - "ClusterNetworkingConfigV2.Spec.KeepAliveInterval"
+    - "ClusterNetworkingConfigV2.Spec.TunnelStrategy"
     - "ClusterNetworkingConfigV2.Kind"
     - "ClusterNetworkingConfigV2.Version"
 

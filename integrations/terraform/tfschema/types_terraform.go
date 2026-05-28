@@ -2877,8 +2877,10 @@ func GenSchemaClusterNetworkingConfigV2(ctx context.Context) (github_com_hashico
 							Optional:    true,
 						},
 					}),
-					Description: "TunnelStrategyV1 determines the tunnel strategy used in the cluster.",
-					Optional:    true,
+					Computed:      true,
+					Description:   "TunnelStrategyV1 determines the tunnel strategy used in the cluster.",
+					Optional:      true,
+					PlanModifiers: []github_com_hashicorp_terraform_plugin_framework_tfsdk.AttributePlanModifier{github_com_hashicorp_terraform_plugin_framework_tfsdk.UseStateForUnknown()},
 				},
 				"web_idle_timeout": {
 					Computed:      true,
