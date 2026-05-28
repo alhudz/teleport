@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 )
@@ -31,9 +33,13 @@ func convertToTerraform(r io.Reader) (io.Writer, error) {
 		return nil, trace.Errorf("unable to detect a kind in the input resource: %w", err)
 	}
 
+	var res tfgen.Resource
 	switch o.kind {
 	case "role":
-
+		res, err = services.UnmarshalRole(jsonbytes)
+		if err != nil {
+			return nil, trace.Errorf("invalid Teleport role in the input %w", err)
+		}
 	case "user":
 	case "trusted_cluster":
 	case "github":
@@ -79,10 +85,18 @@ func convertToTerraform(r io.Reader) (io.Writer, error) {
 	case "scoped_role_assignment":
 	case "scoped_token":
 	default:
-		return nil, trace.Errorf("converting %o to a Terraform resource is not supported", o.kind)
+		return nil, trace.Errorf("converting %v to a Terraform resource is not supported", o.kind)
 	}
 
-	return nil, nil
+	var out bytes.Buffer
+	outbytes, err := tfgen.Generate(res)
+	if err != nil {
+		return nil, trace.Errorf("unable to convert the provided YAML manifest into HCL: %w", err)
+	}
+	if _, err := out.Write(outbytes); err != nil {
+		return nil, trace.Errorf("unable to process the converted HCL: %w", err)
+	}
+	return &out, nil
 }
 
 func main() {
