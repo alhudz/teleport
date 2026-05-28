@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -55,9 +56,10 @@ spec:
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			actual, err := convertToTerraform(strings.NewReader(c.input))
+			var buf bytes.Buffer
+			err := convertToTerraform(&buf, strings.NewReader(c.input))
 			assert.NoError(t, err)
-			assert.Equal(t, c.expected, actual)
+			assert.Equal(t, c.expected, buf.String())
 		})
 	}
 }
