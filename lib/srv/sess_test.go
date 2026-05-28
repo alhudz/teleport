@@ -753,18 +753,18 @@ func TestModeratedSessionPresence(t *testing.T) {
 	require.NotEmpty(t, moderatorParticipant.ID)
 
 	// Wait for the session tracker expiration timer and presence check ticker.
-	srv.clock.BlockUntil(2)
+	srv.clock.BlockUntilContext(ctx, 2)
 
 	// Advance the clock and the moderators presence to the original stale threshold without exceeding it.
 	presenceCheckInterval := srv.GetPresenceMaxDuration() / 4
 	srv.clock.Advance(presenceCheckInterval)
-	srv.clock.BlockUntil(2)
+	srv.clock.BlockUntilContext(ctx, 2)
 	presenceUpdateTime := srv.clock.Now().UTC()
 	require.NoError(t, srv.auth.UpdatePresence(t.Context(), sess.id.String(), moderatorParticipant.User, moderatorParticipant.Cluster))
 
 	// Advance the clock past the original stale threshold. The session should continue running.
 	srv.clock.Advance(srv.GetPresenceMaxDuration() - presenceCheckInterval + time.Second)
-	srv.clock.BlockUntil(2)
+	srv.clock.BlockUntilContext(ctx, 2)
 
 	tracker, err = srv.auth.GetSessionTracker(t.Context(), sess.id.String())
 	require.NoError(t, err)
