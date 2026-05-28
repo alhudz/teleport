@@ -533,9 +533,15 @@ func TestSessionAuditLog(t *testing.T) {
 	require.NotEmpty(t, startEvent.SessionID, "expected non empty sessionID")
 	sessionID := startEvent.SessionID
 
-	// Request agent forwarding, no individual event emitted.
+	// Request agent forwarding, event should be emitted immediately.
 	err = sshagent.RequestAgentForwarding(ctx, se)
 	require.NoError(t, err)
+
+	agentEvent := <-emitter.C()
+	agentForwardEvent, ok := agentEvent.(*apievents.AgentForward)
+	require.True(t, ok, "expected AgentForward event but got event of type %T", agentEvent)
+	require.Equal(t, events.AgentForwardCode, agentForwardEvent.GetCode())
+	require.True(t, agentForwardEvent.Status.Success)
 
 	// Request x11 forwarding, event should be emitted immediately.
 	clientXAuthEntry, err := x11.NewFakeXAuthEntry(x11.Display{})
@@ -1277,6 +1283,12 @@ func TestAgentForwardPermission(t *testing.T) {
 	f := newFixtureWithoutDiskBasedLogging(t)
 	ctx := t.Context()
 
+	emitter := eventstest.NewChannelEmitter(32)
+	f.ssh.srv.StreamEmitter = events.StreamerAndEmitter{
+		Streamer: events.NewDiscardStreamer(),
+		Emitter:  emitter,
+	}
+
 	// make sure the role does not allow agent forwarding
 	roleName := services.RoleNameForUser(f.user)
 	role, err := f.testSrv.Auth().GetRole(ctx, roleName)
@@ -1305,6 +1317,13 @@ func TestAgentForwardPermission(t *testing.T) {
 	// to interoperate with OpenSSH, requests for agent forwarding always succeed.
 	// however that does not mean the users agent will actually be forwarded.
 	require.NoError(t, sshagent.RequestAgentForwarding(ctx, se))
+
+	agentEvent := <-emitter.C()
+	agentForwardEvent, ok := agentEvent.(*apievents.AgentForward)
+	require.True(t, ok, "expected AgentForward event but got event of type %T", agentEvent)
+	require.Equal(t, events.AgentForwardFailureCode, agentForwardEvent.GetCode())
+	require.False(t, agentForwardEvent.Status.Success)
+	require.Contains(t, agentForwardEvent.Status.Error, "agent forwarding")
 
 	// the output of env, we should not see SSH_AUTH_SOCK in the output
 	output, err := se.Output(ctx, "env")
@@ -1404,6 +1423,12 @@ func TestAgentForward(t *testing.T) {
 	f := newFixtureWithoutDiskBasedLogging(t)
 
 	ctx := t.Context()
+	emitter := eventstest.NewChannelEmitter(32)
+	f.ssh.srv.StreamEmitter = events.StreamerAndEmitter{
+		Streamer: events.NewDiscardStreamer(),
+		Emitter:  emitter,
+	}
+
 	roleName := services.RoleNameForUser(f.user)
 	role, err := f.testSrv.Auth().GetRole(ctx, roleName)
 	require.NoError(t, err)
@@ -1419,6 +1444,12 @@ func TestAgentForward(t *testing.T) {
 
 	err = sshagent.RequestAgentForwarding(ctx, se)
 	require.NoError(t, err)
+
+	agentEvent := <-emitter.C()
+	agentForwardEvent, ok := agentEvent.(*apievents.AgentForward)
+	require.True(t, ok, "expected AgentForward event but got event of type %T", agentEvent)
+	require.Equal(t, events.AgentForwardCode, agentForwardEvent.GetCode())
+	require.True(t, agentForwardEvent.Status.Success)
 
 	// prepare to send virtual "keyboard input" into the shell:
 	keyboard, err := se.StdinPipe()
