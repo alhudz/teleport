@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
@@ -16,20 +16,21 @@ type kindObject struct {
 }
 
 func convertToTerraform(r io.Reader) (io.Writer, error) {
-	var buf bytes.Buffer
-	_, err := io.Copy(&buf, r)
+	var yamlBuf, kindBuf bytes.Buffer
+	dest := io.MultiWriter(&yamlBuf, &kindBuf)
+	_, err := io.Copy(dest, r)
 	if err != nil {
 		return nil, trace.Errorf("unable to read input YAML: %w", err)
 	}
 
-	jsonbytes, err := utils.ToJSON(buf.Bytes())
+	jsonbytes, err := utils.ToJSON(yamlBuf.Bytes())
 	if err != nil {
 		return nil, trace.Errorf("unable to process input YAML as JSON (which we need to do to convert it to a Teleport resource type): %w", err)
 
 	}
 
 	var o kindObject
-	if err = json.NewDecoder(r).Decode(&o); err != nil {
+	if err = yaml.Unmarshal(jsonbytes, &o); err != nil {
 		return nil, trace.Errorf("unable to detect a kind in the input resource: %w", err)
 	}
 
