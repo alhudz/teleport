@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 
 	"github.com/ghodss/yaml"
@@ -16,6 +17,34 @@ type kindObject struct {
 }
 
 type jsonToHCLConverter func(data []byte) (tfgen.Resource, error)
+
+// addHeaderToJSON takes an arbitrary JSON object and restructures it so that
+// relevant fields appear in a ResourceHeader. We use this to prepare YAML
+// resource specifications for transformation into Terraform HCL.
+func addHeaderToJSON(data []byte) ([]byte, error) {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return nil, trace.Errorf("could not extract a valid object from the resource spec: %w", err)
+	}
+
+	kind, kok := obj["kind"]
+	ver, vok := obj["version"]
+	meta, mok := obj["metadata"]
+	if !kok || !vok || !mok {
+		return nil, trace.Errorf("the resource spec must include a kind, version, and metadata")
+	}
+
+	obj["header"] = map[string]any{
+		"kind":     kind,
+		"version":  ver,
+		"metadata": meta,
+	}
+	delete(obj, "kind")
+	delete(obj, "version")
+	delete(obj, "metadata")
+
+	return json.Marshal(obj)
+}
 
 var defaultConf = map[string]jsonToHCLConverter{
 	"role": func(data []byte) (tfgen.Resource, error) {
