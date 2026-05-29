@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	accesslistv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/accesslist/v1"
 	"github.com/gravitational/teleport/api/types"
+	"github.com/gravitational/teleport/api/types/accesslist"
+	convertv1 "github.com/gravitational/teleport/api/types/accesslist/convert/v1"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Test_convertYAMLToHCL(t *testing.T) {
@@ -29,15 +29,19 @@ func Test_convertYAMLToHCL(t *testing.T) {
 			return &role, nil
 		},
 		"access_list": func(data []byte) (tfgen.Resource, error) {
-			withheader, err := addHeaderToJSON(data)
-			if err != nil {
+			// Unmarshal to accesslist.AccessList to apply custom
+			// unmarshalers.
+			var al accesslist.AccessList
+			if err := utils.FastUnmarshal(data, &al); err != nil {
 				return nil, trace.Errorf("invalid access_list: %w", err)
+
 			}
-			var list accesslistv1.AccessList
-			if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(withheader, &list); err != nil {
-				return nil, trace.Errorf("invalid access_list: %w", err)
-			}
-			return tfgen.WrapHeaderResource(&list), nil
+
+			// Convert to the proto type, which tfgen requires
+			proto := convertv1.ToProto(&al)
+
+			// Wrap to implement the Resource interface
+			return tfgen.WrapHeaderResource(proto), nil
 		},
 	}
 
