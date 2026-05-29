@@ -108,7 +108,8 @@ support rotation."
       - engineer
 `,
 			expected: `resource "teleport_access_list" "support-engineers" {
-  header =  {
+  header = {
+    kind    = "access_list"
     version = "v1"
     metadata = {
       name = "support-engineers"
@@ -116,29 +117,29 @@ support rotation."
   }
 
   spec = {
-    title = "Production access for support engineers"
-    description = "Use this Access List to grant access to production to your engineers enrolled in the
-support rotation."
+    description = "Use this Access List to grant access to production to your engineers enrolled in the support rotation."
+    owners = [{
+      description       = "manager of NA support team"
+      ineligible_status = "0"
+      membership_kind   = "0"
+      name              = "alice"
+    }]
     audit = {
       recurrence = {
-        frequency = 6
+        frequency    = "6"
+        day_of_month = "0"
       }
     }
-    owners = [
-      {
-        description = "manager of NA support team"
-        name = "alice"
-      }
-    ]
+    membership_requires = {
+      roles = ["engineer"]
+    }
     ownership_requires = {
       roles = ["manager"]
     }
     grants = {
       roles = ["support-engineer"]
     }
-    membership_requires = {
-      roles = ["engineer"]
-    }
+    title = "Production access for support engineers"
   }
 }
 `,
