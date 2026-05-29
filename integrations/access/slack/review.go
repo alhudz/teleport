@@ -48,7 +48,7 @@ const (
 type ReviewBot interface {
 	common.MessagingBot
 
-	GenerateSocketModeURL(ctx context.Context) (string, error)
+	GenerateWebSocketURL(ctx context.Context) (string, error)
 	LookupEmailByUserID(ctx context.Context, userID string) (string, error)
 	PostReviewErrorReply(ctx context.Context, channelID, userID string, reviewErr error) error
 }

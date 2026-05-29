@@ -189,7 +189,8 @@ func (b Bot) PostReviewReply(ctx context.Context, channelID, timestamp string, r
 	return trace.Wrap(err)
 }
 
-func (b Bot) GenerateSocketModeURL(ctx context.Context) (string, error) {
+// GenerateWebSocketURL generates a temporary WebSocket URL to receive Slack access review interactions from.
+func (b Bot) GenerateWebSocketURL(ctx context.Context) (string, error) {
 	var result AppsOpenResponse
 	_, err := b.appClient.NewRequest().
 		SetContext(ctx).
