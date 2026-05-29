@@ -46,6 +46,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/gravitational/teleport"
@@ -407,20 +408,20 @@ func TestAuthenticateWebUser_deviceWebToken(t *testing.T) {
 		switch {
 		case dwt == nil:
 			return nil, errors.New("dtw parameter is nil")
-		case dwt.WebSessionId == "":
+		case dwt.GetWebSessionId() == "":
 			return nil, errors.New("dwt.WebSessionId is empty")
-		case dwt.BrowserUserAgent == "":
+		case dwt.GetBrowserUserAgent() == "":
 			return nil, errors.New("dwt.BrowserUserAgent is empty")
-		case dwt.BrowserIp != remoteIP:
+		case dwt.GetBrowserIp() != remoteIP:
 			return nil, errors.New("dwt.BrowserUserAgent is empty")
-		case dwt.User != user:
+		case dwt.GetUser() != user:
 			return nil, errors.New("dwt.User mismatch")
 		}
 
-		return &devicepb.DeviceWebToken{
+		return devicepb.DeviceWebToken_builder{
 			Id:    "this is an opaque ID",
 			Token: "this is an opaque token",
-		}, nil
+		}.Build(), nil
 	}
 
 	makeTokenError := func(context.Context, *devicepb.DeviceWebToken) (*devicepb.DeviceWebToken, error) {
@@ -438,9 +439,9 @@ func TestAuthenticateWebUser_deviceWebToken(t *testing.T) {
 		if dwt == nil {
 			return nil, errors.New("dwt required")
 		}
-		uaToSessionID.Store(dwt.BrowserUserAgent, dwt.GetWebSessionId())
+		uaToSessionID.Store(dwt.GetBrowserUserAgent(), dwt.GetWebSessionId())
 
-		if strings.HasPrefix(dwt.BrowserUserAgent, "fail") {
+		if strings.HasPrefix(dwt.GetBrowserUserAgent(), "fail") {
 			return makeTokenError(ctx, dwt)
 		}
 
@@ -1223,9 +1224,9 @@ func TestLocalControlStream(t *testing.T) {
 	stream := s.a.MakeLocalInventoryControlStream()
 	defer stream.Close()
 
-	err := stream.Send(ctx, &proto.UpstreamInventoryHello{
+	err := stream.Send(ctx, proto.UpstreamInventoryHello_builder{
 		ServerID: serverID,
-	})
+	}.Build())
 	require.NoError(t, err)
 
 	select {
@@ -1252,7 +1253,8 @@ func TestLocalControlStream(t *testing.T) {
 
 	select {
 	case msg := <-stream.Recv():
-		require.IsType(t, *new(*proto.DownstreamInventoryPing), msg)
+		var want *proto.DownstreamInventoryPing
+		require.IsType(t, want, msg)
 	case <-stream.Done():
 		t.Fatalf("stream closed unexpectedly: %v", stream.Error())
 	case <-time.After(time.Second * 10):
@@ -3023,49 +3025,49 @@ func TestGenerateOpenSSHCertScoped(t *testing.T) {
 	// Create a scoped role at /staging that grants "scoped-login".
 	scopedService := local.NewScopedAccessService(p.bk)
 
-	_, err = scopedService.CreateScopedRole(ctx, &scopedaccessv1pb.CreateScopedRoleRequest{
-		Role: &scopedaccessv1pb.ScopedRole{
+	_, err = scopedService.CreateScopedRole(ctx, scopedaccessv1pb.CreateScopedRoleRequest_builder{
+		Role: scopedaccessv1pb.ScopedRole_builder{
 			Kind: "scoped_role",
-			Metadata: &headerv1.Metadata{
+			Metadata: headerv1.Metadata_builder{
 				Name: "staging-ssh",
-			},
+			}.Build(),
 			Scope: "/staging",
-			Spec: &scopedaccessv1pb.ScopedRoleSpec{
+			Spec: scopedaccessv1pb.ScopedRoleSpec_builder{
 				AssignableScopes: []string{"/staging"},
-				Ssh: &scopedaccessv1pb.ScopedRoleSSH{
+				Ssh: scopedaccessv1pb.ScopedRoleSSH_builder{
 					Logins: []string{"scoped-login"},
 					Labels: []*labelv1.Label{
-						{Name: "*", Values: []string{"*"}},
+						labelv1.Label_builder{Name: "*", Values: []string{"*"}}.Build(),
 					},
-				},
-			},
+				}.Build(),
+			}.Build(),
 			Version: types.V1,
-		},
-	})
+		}.Build(),
+	}.Build())
 	require.NoError(t, err)
 
-	_, err = scopedService.CreateScopedRoleAssignment(ctx, &scopedaccessv1pb.CreateScopedRoleAssignmentRequest{
-		Assignment: &scopedaccessv1pb.ScopedRoleAssignment{
+	_, err = scopedService.CreateScopedRoleAssignment(ctx, scopedaccessv1pb.CreateScopedRoleAssignmentRequest_builder{
+		Assignment: scopedaccessv1pb.ScopedRoleAssignment_builder{
 			Kind: "scoped_role_assignment",
-			Metadata: &headerv1.Metadata{
+			Metadata: headerv1.Metadata_builder{
 				Name: uuid.NewString(),
-			},
+			}.Build(),
 			Scope:   "/staging",
 			SubKind: "dynamic",
-			Spec: &scopedaccessv1pb.ScopedRoleAssignmentSpec{
+			Spec: scopedaccessv1pb.ScopedRoleAssignmentSpec_builder{
 				User: "scoped-user",
 				Assignments: []*scopedaccessv1pb.Assignment{
-					{
+					scopedaccessv1pb.Assignment_builder{
 						Role:  "staging-ssh",
 						Scope: "/staging",
-					},
+					}.Build(),
 				},
-			},
+			}.Build(),
 			Version: types.V1,
-		},
-	})
+		}.Build(),
+	}.Build())
 	require.NoError(t, err)
-	pin := &scopesv1pb.Pin{Kind: scopesv1pb.PinKind_PIN_KIND_USER, Scope: "/staging"}
+	pin := scopesv1pb.Pin_builder{Kind: scopesv1pb.PinKind_PIN_KIND_USER, Scope: "/staging"}.Build()
 
 	// Wait for scoped access cache to see the assignment.
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
@@ -5044,28 +5046,28 @@ func TestCleanupNotifications(t *testing.T) {
 	// Create notification states for all notifications
 	for _, notif := range createdNotifications {
 		if !notif.isGlobal {
-			_, err := srv.Auth().UpsertUserNotificationState(ctx, notif.username, &notificationsv1.UserNotificationState{
-				Spec: &notificationsv1.UserNotificationStateSpec{
+			_, err := srv.Auth().UpsertUserNotificationState(ctx, notif.username, notificationsv1.UserNotificationState_builder{
+				Spec: notificationsv1.UserNotificationStateSpec_builder{
 					Username:       notif.username,
 					NotificationId: notif.id,
-				},
-				Status: &notificationsv1.UserNotificationStateStatus{
+				}.Build(),
+				Status: notificationsv1.UserNotificationStateStatus_builder{
 					NotificationState: notificationsv1.NotificationState_NOTIFICATION_STATE_CLICKED,
-				},
-			})
+				}.Build(),
+			}.Build())
 			require.NoError(t, err)
 		} else {
 			// For global notifications, create a state for both users
 			for _, username := range users {
-				_, err := srv.Auth().UpsertUserNotificationState(ctx, username, &notificationsv1.UserNotificationState{
-					Spec: &notificationsv1.UserNotificationStateSpec{
+				_, err := srv.Auth().UpsertUserNotificationState(ctx, username, notificationsv1.UserNotificationState_builder{
+					Spec: notificationsv1.UserNotificationStateSpec_builder{
 						Username:       username,
 						NotificationId: notif.id,
-					},
-					Status: &notificationsv1.UserNotificationStateStatus{
+					}.Build(),
+					Status: notificationsv1.UserNotificationStateStatus_builder{
 						NotificationState: notificationsv1.NotificationState_NOTIFICATION_STATE_CLICKED,
-					},
-				})
+					}.Build(),
+				}.Build())
 				require.NoError(t, err)
 			}
 		}
@@ -5200,7 +5202,7 @@ func testCreateAccessListReminderNotifications(t *testing.T) {
 	synctest.Wait()
 	resp, err := client.ListNotifications(ctx, &notificationsv1.ListNotificationsRequest{})
 	require.NoError(t, err)
-	assert.ElementsMatch(t, expectedSubKinds, slices.Map(resp.Notifications, reminderNotificationSubKind))
+	assert.ElementsMatch(t, expectedSubKinds, slices.Map(resp.GetNotifications(), reminderNotificationSubKind))
 
 	// Run CreateAccessListReminderNotifications() again to verify no duplicates are created
 	authServer.CreateAccessListReminderNotifications(ctx, auth.WithCreateNotificationInterval(time.Nanosecond))
@@ -5209,7 +5211,7 @@ func testCreateAccessListReminderNotifications(t *testing.T) {
 	synctest.Wait()
 	resp, err = client.ListNotifications(ctx, &notificationsv1.ListNotificationsRequest{})
 	require.NoError(t, err)
-	assert.ElementsMatch(t, expectedSubKinds, slices.Map(resp.Notifications, reminderNotificationSubKind),
+	assert.ElementsMatch(t, expectedSubKinds, slices.Map(resp.GetNotifications(), reminderNotificationSubKind),
 		"notifications should not have changed after second reconciliation")
 }
 
@@ -5461,15 +5463,15 @@ func newUserNotificationWithExpiry(t *testing.T, username string, title string, 
 
 	notification := notificationsv1.Notification{
 		SubKind: "test-subkind",
-		Spec: &notificationsv1.NotificationSpec{
+		Spec: notificationsv1.NotificationSpec_builder{
 			Username: username,
-		},
-		Metadata: &headerv1.Metadata{
+		}.Build(),
+		Metadata: headerv1.Metadata_builder{
 			Expires: expires,
 			Labels: map[string]string{
 				types.NotificationTitleLabel: title,
 			},
-		},
+		}.Build(),
 	}
 
 	return &notification
@@ -5479,21 +5481,19 @@ func newGlobalNotificationWithExpiry(t *testing.T, title string, expires *timest
 	t.Helper()
 
 	notification := notificationsv1.GlobalNotification{
-		Spec: &notificationsv1.GlobalNotificationSpec{
-			Matcher: &notificationsv1.GlobalNotificationSpec_All{
-				All: true,
-			},
-			Notification: &notificationsv1.Notification{
+		Spec: notificationsv1.GlobalNotificationSpec_builder{
+			All: proto.Bool(true),
+			Notification: notificationsv1.Notification_builder{
 				SubKind: "test-subkind",
 				Spec:    &notificationsv1.NotificationSpec{},
-				Metadata: &headerv1.Metadata{
+				Metadata: headerv1.Metadata_builder{
 					Expires: expires,
 					Labels: map[string]string{
 						types.NotificationTitleLabel: title,
 					},
-				},
-			},
-		},
+				}.Build(),
+			}.Build(),
+		}.Build(),
 	}
 
 	return &notification

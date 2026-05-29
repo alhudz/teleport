@@ -459,10 +459,10 @@ func NewServerContext(ctx context.Context, parent *sshutils.ConnectionContext, s
 	)
 	switch {
 	case identityContext.AccessPermit != nil:
-		clientIdleTimeout = identityContext.AccessPermit.ClientIdleTimeout.AsDuration()
-		disconnectExpiredCert = timestampToGoTime(identityContext.AccessPermit.DisconnectExpiredCert)
-		lockTargets = decision.LockTargetsFromProto(identityContext.AccessPermit.LockTargets)
-		lockingMode = constants.LockingMode(identityContext.AccessPermit.LockingMode)
+		clientIdleTimeout = identityContext.AccessPermit.GetClientIdleTimeout().AsDuration()
+		disconnectExpiredCert = timestampToGoTime(identityContext.AccessPermit.GetDisconnectExpiredCert())
+		lockTargets = decision.LockTargetsFromProto(identityContext.AccessPermit.GetLockTargets())
+		lockingMode = constants.LockingMode(identityContext.AccessPermit.GetLockingMode())
 
 	case identityContext.ProxyingPermit != nil:
 		clientIdleTimeout = identityContext.ProxyingPermit.ClientIdleTimeout
@@ -721,7 +721,7 @@ func (c *ServerContext) CheckFileCopyingAllowed() error {
 	}
 
 	// check if ssh access permit is defined and authorizes file copying
-	if permit := c.Identity.AccessPermit; permit != nil && permit.SshFileCopy {
+	if permit := c.Identity.AccessPermit; permit != nil && permit.GetSshFileCopy() {
 		return nil
 	}
 
@@ -1020,7 +1020,7 @@ func getPAMConfig(c *ServerContext) (*reexec.PAMConfig, error) {
 	environment := make(map[string]string)
 	environment["TELEPORT_USERNAME"] = c.Identity.TeleportUser
 	environment["TELEPORT_LOGIN"] = c.Identity.Login
-	environment["TELEPORT_ROLES"] = strings.Join(c.Identity.AccessPermit.MappedRoles, " ")
+	environment["TELEPORT_ROLES"] = strings.Join(c.Identity.AccessPermit.GetMappedRoles(), " ")
 	if localPAMConfig.Environment != nil {
 		for key, value := range localPAMConfig.Environment {
 			expr, err := parse.NewTraitsTemplateExpression(value)
@@ -1093,7 +1093,7 @@ func (c *ServerContext) ExecCommand() (*reexec.ExecCommand, error) {
 	var mappedRoles []string
 	switch {
 	case c.Identity.AccessPermit != nil:
-		mappedRoles = c.Identity.AccessPermit.MappedRoles
+		mappedRoles = c.Identity.AccessPermit.GetMappedRoles()
 	case c.Identity.ProxyingPermit != nil:
 		mappedRoles = c.Identity.ProxyingPermit.MappedRoles
 	default:

@@ -39,8 +39,8 @@ func TestValidateBeam(t *testing.T) {
 	require.NoError(t, services.ValidateBeam(testBeam("beam-alias")))
 
 	unrestrictedBeam := testBeam("beam-alias")
-	unrestrictedBeam.Spec.Egress = beamsv1.EgressMode_EGRESS_MODE_UNRESTRICTED
-	unrestrictedBeam.Spec.AllowedDomains = nil
+	unrestrictedBeam.GetSpec().SetEgress(beamsv1.EgressMode_EGRESS_MODE_UNRESTRICTED)
+	unrestrictedBeam.GetSpec().SetAllowedDomains(nil)
 	require.NoError(t, services.ValidateBeam(unrestrictedBeam))
 
 	testCases := map[string]struct {
@@ -55,126 +55,126 @@ func TestValidateBeam(t *testing.T) {
 		"wrong version": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Version = ""
+				b.SetVersion("")
 			},
 			err: `version: only supports version "v1", got ""`,
 		},
 		"wrong kind": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Kind = ""
+				b.SetKind("")
 			},
 			err: `kind: must be "beam", got ""`,
 		},
 		"missing metadata": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Metadata = nil
+				b.ClearMetadata()
 			},
 			err: "metadata: is required",
 		},
 		"missing metadata name": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Metadata.Name = ""
+				b.GetMetadata().SetName("")
 			},
 			err: "metadata.name: is required",
 		},
 		"missing spec": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec = nil
+				b.ClearSpec()
 			},
 			err: "spec: is required",
 		},
 		"unspecified egress": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.Egress = beamsv1.EgressMode_EGRESS_MODE_UNSPECIFIED
+				b.GetSpec().SetEgress(beamsv1.EgressMode_EGRESS_MODE_UNSPECIFIED)
 			},
 			err: "spec.egress: must be EGRESS_MODE_RESTRICTED or EGRESS_MODE_UNRESTRICTED",
 		},
 		"invalid egress": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.Egress = beamsv1.EgressMode(42)
+				b.GetSpec().SetEgress(beamsv1.EgressMode(42))
 			},
 			err: "spec.egress: must be EGRESS_MODE_RESTRICTED or EGRESS_MODE_UNRESTRICTED",
 		},
 		"allowed domains with unrestricted egress": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.Egress = beamsv1.EgressMode_EGRESS_MODE_UNRESTRICTED
+				b.GetSpec().SetEgress(beamsv1.EgressMode_EGRESS_MODE_UNRESTRICTED)
 			},
 			err: "spec.allowed_domains: may only be set when spec.egress is EGRESS_MODE_RESTRICTED",
 		},
 		"empty allowed domain": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.AllowedDomains = []string{""}
+				b.GetSpec().SetAllowedDomains([]string{""})
 			},
 			err: `spec.allowed_domains[0]: "" must be a fully qualified domain name ending with '.'`,
 		},
 		"invalid allowed domain": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.AllowedDomains = []string{"Example.COM."}
+				b.GetSpec().SetAllowedDomains([]string{"Example.COM."})
 			},
 			err: `spec.allowed_domains[0]: "Example.COM." is invalid`,
 		},
 		"wildcard allowed domain": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.AllowedDomains = []string{"*.example.com."}
+				b.GetSpec().SetAllowedDomains([]string{"*.example.com."})
 			},
 			err: `spec.allowed_domains[0]: "*.example.com." is invalid`,
 		},
 		"allowed domain missing trailing dot": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.AllowedDomains = []string{"example.com"}
+				b.GetSpec().SetAllowedDomains([]string{"example.com"})
 			},
 			err: `spec.allowed_domains[0]: "example.com" must be a fully qualified domain name ending with '.'`,
 		},
 		"allowed domain is not fqdn": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.AllowedDomains = []string{"localhost."}
+				b.GetSpec().SetAllowedDomains([]string{"localhost."})
 			},
 			err: `spec.allowed_domains[0]: "localhost." must be a fully qualified domain name ending with '.'`,
 		},
 		"invalid publish port": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.Publish.Port = 9090
+				b.GetSpec().GetPublish().SetPort(9090)
 			},
 			err: `spec.publish.port: must be 8080`,
 		},
 		"invalid publish protocol": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.Publish.Protocol = beamsv1.Protocol(9999)
+				b.GetSpec().GetPublish().SetProtocol(beamsv1.Protocol(9999))
 			},
 			err: `spec.publish.protocol: must be HTTP or TCP`,
 		},
 		"missing expires": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Spec.Expires = nil
+				b.GetSpec().ClearExpires()
 			},
 			err: "spec.expires: is required",
 		},
 		"missing status": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Status = nil
+				b.ClearStatus()
 			},
 			err: "status: is required",
 		},
 		"invalid alias": {
 			beam: testBeam("beam-alias"),
 			modFn: func(b *beamsv1.Beam) {
-				b.Status.Alias = "beam-123"
+				b.GetStatus().SetAlias("beam-123")
 			},
 			err: "beam alias must be a hyphen-separated pair of two lowercase words",
 		},
@@ -195,24 +195,24 @@ func TestValidateBeam(t *testing.T) {
 }
 
 func testBeam(alias string) *beamsv1.Beam {
-	return &beamsv1.Beam{
+	return beamsv1.Beam_builder{
 		Kind:    types.KindBeam,
 		Version: types.V1,
-		Metadata: &headerv1.Metadata{
+		Metadata: headerv1.Metadata_builder{
 			Name: uuid.NewString(),
-		},
-		Spec: &beamsv1.BeamSpec{
+		}.Build(),
+		Spec: beamsv1.BeamSpec_builder{
 			Egress:         beamsv1.EgressMode_EGRESS_MODE_RESTRICTED,
 			AllowedDomains: []string{"example.com."},
-			Publish: &beamsv1.PublishSpec{
+			Publish: beamsv1.PublishSpec_builder{
 				Port:     8080,
 				Protocol: beamsv1.Protocol_PROTOCOL_HTTP,
-			},
+			}.Build(),
 			Expires: timestamppb.New(time.Now().Add(time.Hour)),
-		},
-		Status: &beamsv1.BeamStatus{
+		}.Build(),
+		Status: beamsv1.BeamStatus_builder{
 			User:  "alice",
 			Alias: alias,
-		},
-	}
+		}.Build(),
+	}.Build()
 }

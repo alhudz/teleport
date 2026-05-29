@@ -1163,13 +1163,13 @@ func (s *session) createEphemeralContainer() (*corev1.ContainerStatus, error) {
 	}
 	waitingCont, err := s.forwarder.cfg.CachingAuthClient.GetKubernetesWaitingContainer(
 		s.forwarder.ctx,
-		&kubewaitingcontainerpb.GetKubernetesWaitingContainerRequest{
+		kubewaitingcontainerpb.GetKubernetesWaitingContainerRequest_builder{
 			Username:      username,
 			Cluster:       s.ctx.kubeClusterName,
 			Namespace:     namespace,
 			PodName:       podName,
 			ContainerName: container,
-		},
+		}.Build(),
 	)
 	if trace.IsNotFound(err) {
 		return nil, nil
@@ -1179,13 +1179,13 @@ func (s *session) createEphemeralContainer() (*corev1.ContainerStatus, error) {
 
 	if err = s.forwarder.cfg.AuthClient.DeleteKubernetesWaitingContainer(
 		s.forwarder.ctx,
-		&kubewaitingcontainerpb.DeleteKubernetesWaitingContainerRequest{
+		kubewaitingcontainerpb.DeleteKubernetesWaitingContainerRequest_builder{
 			Username:      username,
 			Cluster:       s.ctx.kubeClusterName,
 			Namespace:     namespace,
 			PodName:       podName,
 			ContainerName: container,
-		},
+		}.Build(),
 	); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1524,7 +1524,7 @@ func (s *session) patchAndWaitForPodEphemeralContainer(
 	headers http.Header,
 	waitingCont *kubewaitingcontainerpb.KubernetesWaitingContainer,
 ) (containerStatus *corev1.ContainerStatus, err error) {
-	fmt.Fprintf(s.io, "\r\nCreating ephemeral container %s in pod %s/%s\r\n", waitingCont.Spec.ContainerName, waitingCont.Spec.Namespace, waitingCont.Spec.PodName)
+	fmt.Fprintf(s.io, "\r\nCreating ephemeral container %s in pod %s/%s\r\n", waitingCont.GetSpec().GetContainerName(), waitingCont.GetSpec().GetNamespace(), waitingCont.GetSpec().GetPodName())
 
 	clientSet, _, err := s.forwarder.impersonatedKubeClient(authCtx, headers)
 	if err != nil {
@@ -1532,9 +1532,9 @@ func (s *session) patchAndWaitForPodEphemeralContainer(
 	}
 	podClient := clientSet.CoreV1().Pods(authCtx.metaResource.requestedResource.namespace)
 	result, err := podClient.Patch(ctx,
-		waitingCont.Spec.PodName,
+		waitingCont.GetSpec().GetPodName(),
 		apimachinerytypes.StrategicMergePatchType,
-		waitingCont.Spec.Patch,
+		waitingCont.GetSpec().GetPatch(),
 		metav1.PatchOptions{},
 		"ephemeralcontainers")
 	if err != nil {
@@ -1542,10 +1542,10 @@ func (s *session) patchAndWaitForPodEphemeralContainer(
 	}
 
 	fmt.Fprintf(s.io, "Pod %s/%s successfully patched. Waiting for container to become ready.\r\n",
-		waitingCont.Spec.Namespace,
-		waitingCont.Spec.PodName)
+		waitingCont.GetSpec().GetNamespace(),
+		waitingCont.GetSpec().GetPodName())
 
-	fieldSelector := fields.OneTermEqualSelector("metadata.name", waitingCont.Spec.PodName).String()
+	fieldSelector := fields.OneTermEqualSelector("metadata.name", waitingCont.GetSpec().GetPodName()).String()
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = fieldSelector
@@ -1563,7 +1563,7 @@ func (s *session) patchAndWaitForPodEphemeralContainer(
 	_, err = watchtools.UntilWithSync(ctx, lw, &corev1.Pod{}, nil, func(ev watch.Event) (bool, error) {
 		switch ev.Type {
 		case watch.Deleted:
-			return false, trace.NotFound("pod %s not found", waitingCont.Spec.PodName)
+			return false, trace.NotFound("pod %s not found", waitingCont.GetSpec().GetPodName())
 		}
 
 		p, ok := ev.Object.(*corev1.Pod)
@@ -1571,7 +1571,7 @@ func (s *session) patchAndWaitForPodEphemeralContainer(
 			return false, trace.BadParameter("watch did not return a pod: %v", ev.Object)
 		}
 
-		s := getEphemeralContainerStatusByName(p, waitingCont.Spec.ContainerName)
+		s := getEphemeralContainerStatusByName(p, waitingCont.GetSpec().GetContainerName())
 		if s == nil {
 			return false, nil
 		}
@@ -1585,7 +1585,7 @@ func (s *session) patchAndWaitForPodEphemeralContainer(
 		return nil, trace.Wrap(err)
 	}
 
-	fmt.Fprintf(s.io, "Ephemeral container %s is ready.\r\n", waitingCont.Spec.ContainerName)
+	fmt.Fprintf(s.io, "Ephemeral container %s is ready.\r\n", waitingCont.GetSpec().GetContainerName())
 
 	return containerStatus, nil
 }
@@ -1630,7 +1630,7 @@ func (s *session) retrieveEphemeralContainerCommand(ctx context.Context, usernam
 			continue
 		}
 
-		contentType, err := patchTypeToContentType(apimachinerytypes.PatchType(container.Spec.PatchType))
+		contentType, err := patchTypeToContentType(apimachinerytypes.PatchType(container.GetSpec().GetPatchType()))
 		if err != nil {
 			return nil
 		}
@@ -1650,8 +1650,8 @@ func (s *session) retrieveEphemeralContainerCommand(ctx context.Context, usernam
 				podName:       s.podName,
 				decoder:       decoder,
 				encoder:       encoder,
-				podPatch:      container.GetSpec().Patch,
-				patchType:     apimachinerytypes.PatchType(container.GetSpec().PatchType),
+				podPatch:      container.GetSpec().GetPatch(),
+				patchType:     apimachinerytypes.PatchType(container.GetSpec().GetPatchType()),
 			},
 		)
 		if err != nil {

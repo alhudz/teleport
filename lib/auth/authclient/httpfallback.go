@@ -114,9 +114,9 @@ func (c *Client) UpsertProxyServerWithoutReturn(ctx context.Context, s types.Ser
 	if !ok {
 		return trace.BadParameter("unsupported proxy server type %T", s)
 	}
-	_, err := c.APIClient.PresenceServiceClient().UpsertProxyServer(ctx, &presencev1.UpsertProxyServerRequest{
+	_, err := c.APIClient.PresenceServiceClient().UpsertProxyServer(ctx, presencev1.UpsertProxyServerRequest_builder{
 		Server: serverV2,
-	})
+	}.Build())
 	if err == nil {
 		return nil
 	}
@@ -148,9 +148,9 @@ func (c *HTTPClient) upsertProxyServerLegacy(ctx context.Context, s types.Server
 //
 // TODO(noah): DELETE IN v20.0.0
 func (c *Client) DeleteProxyServer(ctx context.Context, name string) error {
-	_, err := c.APIClient.PresenceServiceClient().DeleteProxyServer(ctx, &presencev1.DeleteProxyServerRequest{
+	_, err := c.APIClient.PresenceServiceClient().DeleteProxyServer(ctx, presencev1.DeleteProxyServerRequest_builder{
 		Name: name,
-	})
+	}.Build())
 	if err == nil {
 		return nil
 	}

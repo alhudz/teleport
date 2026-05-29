@@ -133,13 +133,13 @@ func TestScopePin(t *testing.T) {
 
 	identity := Identity{
 		Username: "alice@example.com",
-		ScopePin: &scopesv1.Pin{
+		ScopePin: scopesv1.Pin_builder{
 			Kind:  scopesv1.PinKind_PIN_KIND_USER,
 			Scope: "/foo",
 			AssignmentTree: pinning.AssignmentTreeFromMap(map[string]map[string][]string{
 				"/": {"/": {"r1"}, "/foo": {"r2"}},
 			}),
-		},
+		}.Build(),
 	}
 
 	subj, err := identity.Subject()
@@ -221,17 +221,17 @@ func TestJoinAttributes(t *testing.T) {
 		BotInstanceID: "1234-5678",
 		BotInternal:   true,
 		Expires:       expires,
-		JoinAttributes: &workloadidentityv1pb.JoinAttrs{
-			Kubernetes: &workloadidentityv1pb.JoinAttrsKubernetes{
-				ServiceAccount: &workloadidentityv1pb.JoinAttrsKubernetesServiceAccount{
+		JoinAttributes: workloadidentityv1pb.JoinAttrs_builder{
+			Kubernetes: workloadidentityv1pb.JoinAttrsKubernetes_builder{
+				ServiceAccount: workloadidentityv1pb.JoinAttrsKubernetesServiceAccount_builder{
 					Namespace: "default",
 					Name:      "foo",
-				},
-				Pod: &workloadidentityv1pb.JoinAttrsKubernetesPod{
+				}.Build(),
+				Pod: workloadidentityv1pb.JoinAttrsKubernetesPod_builder{
 					Name: "bar",
-				},
-			},
-		},
+				}.Build(),
+			}.Build(),
+		}.Build(),
 	}
 
 	subj, err := identity.Subject()

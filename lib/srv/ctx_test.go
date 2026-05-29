@@ -49,33 +49,33 @@ func TestCheckSFTPAllowed(t *testing.T) {
 		{
 			name:                 "node disallowed",
 			nodeAllowFileCopying: false,
-			permit: &decisionpb.SSHAccessPermit{
+			permit: decisionpb.SSHAccessPermit_builder{
 				SshFileCopy: true,
-			},
+			}.Build(),
 			expectedErr: ErrNodeFileCopyingNotPermitted,
 		},
 		{
 			name:                 "node allowed",
 			nodeAllowFileCopying: true,
-			permit: &decisionpb.SSHAccessPermit{
+			permit: decisionpb.SSHAccessPermit_builder{
 				SshFileCopy: true,
-			},
+			}.Build(),
 			expectedErr: nil,
 		},
 		{
 			name:                 "role disallowed",
 			nodeAllowFileCopying: true,
-			permit: &decisionpb.SSHAccessPermit{
+			permit: decisionpb.SSHAccessPermit_builder{
 				SshFileCopy: false,
-			},
+			}.Build(),
 			expectedErr: errRoleFileCopyingNotPermitted,
 		},
 		{
 			name:                 "role allowed",
 			nodeAllowFileCopying: true,
-			permit: &decisionpb.SSHAccessPermit{
+			permit: decisionpb.SSHAccessPermit_builder{
 				SshFileCopy: true,
-			},
+			}.Build(),
 			expectedErr: nil,
 		},
 		{
@@ -97,9 +97,9 @@ func TestCheckSFTPAllowed(t *testing.T) {
 		{
 			name:                 "moderated sessions enforced",
 			nodeAllowFileCopying: true,
-			permit: &decisionpb.SSHAccessPermit{
+			permit: decisionpb.SSHAccessPermit_builder{
 				SshFileCopy: true,
-			},
+			}.Build(),
 			sessionPolicies: []*types.SessionRequirePolicy{
 				{
 					Name:   "test",

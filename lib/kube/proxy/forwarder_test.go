@@ -1624,40 +1624,40 @@ func newScopedKubeAuthorizer(t *testing.T, cfg scopedKubeAuthorizerConfig) mockA
 
 	var lock *scopedaccessv1.Lock
 	if cfg.kubeLockMode != "" {
-		lock = &scopedaccessv1.Lock{Mode: string(cfg.kubeLockMode)}
+		lock = scopedaccessv1.Lock_builder{Mode: string(cfg.kubeLockMode)}.Build()
 	}
 
-	role := &scopedaccessv1.ScopedRole{
+	role := scopedaccessv1.ScopedRole_builder{
 		Kind: "scoped_role",
-		Metadata: &headerv1.Metadata{
+		Metadata: headerv1.Metadata_builder{
 			Name: scopedTestRole,
-		},
+		}.Build(),
 		Scope: "/",
-		Spec: &scopedaccessv1.ScopedRoleSpec{
+		Spec: scopedaccessv1.ScopedRoleSpec_builder{
 			AssignableScopes: []string{scopedTestScope},
-			Kube: &scopedaccessv1.ScopedRoleKube{
+			Kube: scopedaccessv1.ScopedRoleKube_builder{
 				Labels: []*labelv1.Label{
-					{Name: types.Wildcard, Values: []string{types.Wildcard}},
+					labelv1.Label_builder{Name: types.Wildcard, Values: []string{types.Wildcard}}.Build(),
 				},
 				Groups:                cfg.kubeGroups,
 				Users:                 cfg.kubeUsers,
 				Lock:                  lock,
 				DisconnectExpiredCert: cfg.kubeDisconnectExpired,
-			},
-		},
+			}.Build(),
+		}.Build(),
 		Version: types.V1,
-	}
+	}.Build()
 
 	reader := &fakeScopedRoleReader{
 		role: role,
 	}
 
-	pin := &scopesv1.Pin{Kind: scopesv1.PinKind_PIN_KIND_USER, Scope: scopedTestScope}
-	pin.AssignmentTree = pinning.AssignmentTreeFromMap(map[string]map[string][]string{
+	pin := scopesv1.Pin_builder{Kind: scopesv1.PinKind_PIN_KIND_USER, Scope: scopedTestScope}.Build()
+	pin.SetAssignmentTree(pinning.AssignmentTreeFromMap(map[string]map[string][]string{
 		"/": {
 			scopedTestScope: {scopedTestRole},
 		},
-	})
+	}))
 
 	checkerCtx, err := services.NewScopedAccessCheckerContext(t.Context(), &services.AccessInfo{
 		Username: cfg.user.GetName(),
@@ -1682,11 +1682,11 @@ type fakeScopedRoleReader struct {
 
 func (r *fakeScopedRoleReader) GetScopedRole(_ context.Context, req *scopedaccessv1.GetScopedRoleRequest) (*scopedaccessv1.GetScopedRoleResponse, error) {
 
-	return &scopedaccessv1.GetScopedRoleResponse{Role: r.role}, nil
+	return scopedaccessv1.GetScopedRoleResponse_builder{Role: r.role}.Build(), nil
 }
 
 func (r *fakeScopedRoleReader) ListScopedRoles(context.Context, *scopedaccessv1.ListScopedRolesRequest) (*scopedaccessv1.ListScopedRolesResponse, error) {
-	return &scopedaccessv1.ListScopedRolesResponse{Roles: []*scopedaccessv1.ScopedRole{r.role}}, nil
+	return scopedaccessv1.ListScopedRolesResponse_builder{Roles: []*scopedaccessv1.ScopedRole{r.role}}.Build(), nil
 }
 
 type mockEventClient struct {
