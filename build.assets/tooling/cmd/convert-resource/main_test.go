@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	accesslistv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/accesslist/v1"
-
 	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
@@ -25,15 +24,18 @@ func Test_convertYAMLToHCL(t *testing.T) {
 		"role": func(data []byte) (tfgen.Resource, error) {
 			var role types.RoleV6
 			if err := utils.FastUnmarshal(data, &role); err != nil {
-				return nil, trace.Errorf("invalid Teleport role in the input %w", err)
+				return nil, trace.Errorf("invalid Teleport role: %w", err)
 			}
 			return &role, nil
 		},
 		"access_list": func(data []byte) (tfgen.Resource, error) {
+			withheader, err := addHeaderToJSON(data)
+			if err != nil {
+				return nil, trace.Errorf("invalid access_list: %w", err)
+			}
 			var list accesslistv1.AccessList
-			if err := (protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(data, &list)); err != nil {
-
-				return nil, trace.Errorf("invalid Teleport access_list in the input %w", err)
+			if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(withheader, &list); err != nil {
+				return nil, trace.Errorf("invalid access_list: %w", err)
 			}
 			return tfgen.WrapHeaderResource(&list), nil
 		},
