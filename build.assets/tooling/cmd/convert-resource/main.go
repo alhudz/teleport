@@ -46,6 +46,17 @@ var resourceTypeOverrides = map[string]string{
 	"device":                  "teleport_device_trust",
 }
 
+// defaultConf maps the kind values of resources supported by the Terraform
+// provider to functions for converting JSON to HCL. There are three patterns
+// for applying the conversion:
+//  1. For legacy gogo-proto types, the YAML/JSON type directly maps to the
+//     Protobuf-generated type, which includes json struct tags, so we can
+//     unmarshal directly using utils.FastUnmarshal.
+//  2. For types based on non-gogo Protobuf messages, unmarshal using
+//     protojson.Unmarshal.
+//  3. For resources that include a header, call utils.FastUnmarshal into the
+//     internal representation of the type, then convert to a Protobuf-based type
+//     and wrap with a header.
 var defaultConf = map[string]jsonToHCLConverter{
 	"role": func(data []byte) (tfgen.Resource, error) {
 		var r types.RoleV6
