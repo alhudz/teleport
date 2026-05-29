@@ -15,7 +15,178 @@ type kindObject struct {
 	Kind string
 }
 
-func convertToTerraform(w io.Writer, r io.Reader) error {
+type jsonToHCLConverter func(data []byte) (tfgen.Resource, error)
+
+var defaultConf = map[string]jsonToHCLConverter{
+	"role": func(data []byte) (tfgen.Resource, error) {
+		var role types.RoleV6
+		if err := utils.FastUnmarshal(data, &role); err != nil {
+			return nil, trace.Errorf("invalid Teleport role in the input %w", err)
+		}
+		return &role, nil
+	},
+	"user": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"trusted_cluster": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"github": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"saml": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"oidc": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"token": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"lock": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"cluster_networking_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"cluster_auth_preference": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"bot": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"autoupdate_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"autoupdate_version": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"health_check_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"workload_identity": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"app": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"db": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"kube_cluster": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"node": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"saml_idp_service_provider": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"access_list": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"access_list_member": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"access_monitoring_rule": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+
+	"login_rule": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+
+	"discovery_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"integration": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"okta_import_rule": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"device": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"installer": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"session_recording_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"ui_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"cluster_maintenance_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"dynamic_windows_desktop": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"static_host_user": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"vnet_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"app_auth_config": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"db_object_import_rule": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"workload_cluster": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"inference_model": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"inference_secret": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"inference_policy": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"retrieval_model": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"scoped_role": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+	"scoped_role_assignment": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+
+	},
+	"scoped_token": func(data []byte) (tfgen.Resource, error) {
+		return nil, nil
+	},
+}
+
+func convertYAMLToHCL(w io.Writer, r io.Reader, config map[string]jsonToHCLConverter) error {
 	var yamlBuf, kindBuf bytes.Buffer
 	dest := io.MultiWriter(&yamlBuf, &kindBuf)
 	_, err := io.Copy(dest, r)
@@ -34,62 +205,14 @@ func convertToTerraform(w io.Writer, r io.Reader) error {
 		return trace.Errorf("unable to detect a kind in the input resource: %w", err)
 	}
 
-	var res tfgen.Resource
-	// Unmarshal the JSON into the relevant Go type. Don't set defaults
-	// since we want to avoid including irrelevant fields from the output.
-	switch o.Kind {
-	case "role":
-		var role types.RoleV6
-		if err = utils.FastUnmarshal(jsonbytes, &role); err != nil {
-			return trace.Errorf("invalid Teleport role in the input %w", err)
-		}
-		res = &role
-	case "user":
-	case "trusted_cluster":
-	case "github":
-	case "saml":
-	case "oidc":
-	case "token":
-	case "lock":
-	case "cluster_networking_config":
-	case "cluster_auth_preference":
-	case "bot":
-	case "autoupdate_config":
-	case "autoupdate_version":
-	case "health_check_config":
-	case "workload_identity":
-	case "app":
-	case "db":
-	case "kube_cluster":
-	case "node":
-	case "saml_idp_service_provider":
-	case "access_list":
-	case "access_list_member":
-	case "access_monitoring_rule":
-	case "login_rule":
-	case "discovery_config":
-	case "integration":
-	case "okta_import_rule":
-	case "device":
-	case "installer":
-	case "session_recording_config":
-	case "ui_config":
-	case "cluster_maintenance_config":
-	case "dynamic_windows_desktop":
-	case "static_host_user":
-	case "vnet_config":
-	case "app_auth_config":
-	case "db_object_import_rule":
-	case "workload_cluster":
-	case "inference_model":
-	case "inference_secret":
-	case "inference_policy":
-	case "retrieval_model":
-	case "scoped_role":
-	case "scoped_role_assignment":
-	case "scoped_token":
-	default:
+	convert, ok := config[o.Kind]
+	if !ok {
 		return trace.Errorf("converting %v to a Terraform resource is not supported", o.Kind)
+	}
+
+	res, err := convert(jsonbytes)
+	if err != nil {
+		return trace.Errorf("unable to convert %v to a Terraform resource: %w", o.Kind, err)
 	}
 
 	outbytes, err := tfgen.Generate(res)
