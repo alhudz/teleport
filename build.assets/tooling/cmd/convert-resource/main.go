@@ -5,10 +5,14 @@ import (
 	"io"
 
 	"github.com/ghodss/yaml"
+	machineidv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/machineid/v1"
 	"github.com/gravitational/teleport/api/types"
+	"github.com/gravitational/teleport/api/types/accesslist"
+	convertv1 "github.com/gravitational/teleport/api/types/accesslist/convert/v1"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type kindObject struct {
@@ -59,8 +63,11 @@ var defaultConf = map[string]jsonToHCLConverter{
 
 	},
 	"bot": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var bot machineidv1.Bot
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &bot); err != nil {
+			return nil, trace.Errorf("invalid bot: %w", err)
+		}
+		return &bot, nil
 	},
 	"autoupdate_config": func(data []byte) (tfgen.Resource, error) {
 		return nil, nil
@@ -99,8 +106,18 @@ var defaultConf = map[string]jsonToHCLConverter{
 
 	},
 	"access_list": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		// Unmarshal to accesslist.AccessList to apply custom
+		// unmarshalers.
+		var al accesslist.AccessList
+		if err := utils.FastUnmarshal(data, &al); err != nil {
+			return nil, trace.Errorf("invalid access_list: %w", err)
+		}
 
+		// Convert to the proto type, which tfgen requires
+		proto := convertv1.ToProto(&al)
+
+		// Wrap to implement the Resource interface
+		return tfgen.WrapHeaderResource(proto), nil
 	},
 	"access_list_member": func(data []byte) (tfgen.Resource, error) {
 		return nil, nil

@@ -5,15 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	machineidv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/machineid/v1"
-	"github.com/gravitational/teleport/api/types"
-	"github.com/gravitational/teleport/api/types/accesslist"
-	convertv1 "github.com/gravitational/teleport/api/types/accesslist/convert/v1"
-	"github.com/gravitational/teleport/lib/tfgen"
-	"github.com/gravitational/teleport/lib/utils"
-	"github.com/gravitational/trace"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Test_convertYAMLToHCL(t *testing.T) {
@@ -23,34 +15,9 @@ func Test_convertYAMLToHCL(t *testing.T) {
 		expected    string
 	}
 	conf := map[string]jsonToHCLConverter{
-		"role": func(data []byte) (tfgen.Resource, error) {
-			var role types.RoleV6
-			if err := utils.FastUnmarshal(data, &role); err != nil {
-				return nil, trace.Errorf("invalid Teleport role: %w", err)
-			}
-			return &role, nil
-		},
-		"access_list": func(data []byte) (tfgen.Resource, error) {
-			// Unmarshal to accesslist.AccessList to apply custom
-			// unmarshalers.
-			var al accesslist.AccessList
-			if err := utils.FastUnmarshal(data, &al); err != nil {
-				return nil, trace.Errorf("invalid access_list: %w", err)
-			}
-
-			// Convert to the proto type, which tfgen requires
-			proto := convertv1.ToProto(&al)
-
-			// Wrap to implement the Resource interface
-			return tfgen.WrapHeaderResource(proto), nil
-		},
-		"bot": func(data []byte) (tfgen.Resource, error) {
-			var bot machineidv1.Bot
-			if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &bot); err != nil {
-				return nil, trace.Errorf("invalid bot: %w", err)
-			}
-			return &bot, nil
-		},
+		"role":        defaultConf["role"],
+		"access_list": defaultConf["access_list"],
+		"bot":         defaultConf["bot"],
 	}
 
 	cases := []testCase{
