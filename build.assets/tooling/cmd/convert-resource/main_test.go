@@ -14,11 +14,6 @@ func Test_convertYAMLToHCL(t *testing.T) {
 		input       string
 		expected    string
 	}
-	conf := map[string]jsonToHCLConverter{
-		"role":        defaultConf["role"],
-		"access_list": defaultConf["access_list"],
-		"bot":         defaultConf["bot"],
-	}
 
 	cases := []testCase{
 		{
@@ -154,7 +149,7 @@ spec:
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
 			var buf bytes.Buffer
-			err := convertYAMLToHCL(&buf, strings.NewReader(c.input), conf)
+			err := convertYAMLToHCL(&buf, strings.NewReader(c.input))
 			assert.NoError(t, err)
 			assert.Equal(t, c.expected, buf.String())
 		})

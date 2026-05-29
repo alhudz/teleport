@@ -46,7 +46,7 @@ var resourceTypeOverrides = map[string]string{
 	"device":                  "teleport_device_trust",
 }
 
-// defaultConf maps the kind values of resources supported by the Terraform
+// resourceConfig maps the kind values of resources supported by the Terraform
 // provider to functions for converting JSON to HCL. There are three patterns
 // for applying the conversion:
 //  1. For legacy gogo-proto types, the YAML/JSON type directly maps to the
@@ -57,7 +57,7 @@ var resourceTypeOverrides = map[string]string{
 //  3. For resources that include a header, call utils.FastUnmarshal into the
 //     internal representation of the type, then convert to a Protobuf-based type
 //     and wrap with a header.
-var defaultConf = map[string]jsonToHCLConverter{
+var resourceConfig = map[string]jsonToHCLConverter{
 	"role": func(data []byte) (tfgen.Resource, error) {
 		var r types.RoleV6
 		if err := utils.FastUnmarshal(data, &r); err != nil {
@@ -220,7 +220,7 @@ var defaultConf = map[string]jsonToHCLConverter{
 		return &r, nil
 	},
 	"login_rule": func(data []byte) (tfgen.Resource, error) {
-		return nil, trace.Error("login_rule is not yet supported for HCL conversion, since performing the conversion requires running the Terraform provider")
+		return nil, trace.Errorf("login_rule is not yet supported for HCL conversion, since performing the conversion requires running the Terraform provider")
 	},
 	"discovery_config": func(data []byte) (tfgen.Resource, error) {
 		var dc discoveryconfig.DiscoveryConfig
@@ -371,7 +371,7 @@ var defaultConf = map[string]jsonToHCLConverter{
 	},
 }
 
-func convertYAMLToHCL(w io.Writer, r io.Reader, config map[string]jsonToHCLConverter) error {
+func convertYAMLToHCL(w io.Writer, r io.Reader) error {
 	var yamlBuf, kindBuf bytes.Buffer
 	dest := io.MultiWriter(&yamlBuf, &kindBuf)
 	_, err := io.Copy(dest, r)
@@ -389,7 +389,7 @@ func convertYAMLToHCL(w io.Writer, r io.Reader, config map[string]jsonToHCLConve
 		return trace.Errorf("unable to detect a kind in the input resource: %w", err)
 	}
 
-	convert, ok := config[o.Kind]
+	convert, ok := resourceConfig[o.Kind]
 	if !ok {
 		return trace.Errorf("converting %v to a Terraform resource is not supported", o.Kind)
 	}
