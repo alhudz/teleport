@@ -5,10 +5,24 @@ import (
 	"io"
 
 	"github.com/ghodss/yaml"
+	accessmonitoringrulesv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/accessmonitoringrules/v1"
+	appauthconfigv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/appauthconfig/v1"
+	autoupdatev1pb "github.com/gravitational/teleport/api/gen/proto/go/teleport/autoupdate/v1"
+	dbobjectimportrulev1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/dbobjectimportrule/v1"
+	healthcheckconfigv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/healthcheckconfig/v1"
 	machineidv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/machineid/v1"
+	scopedaccessv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/scopes/access/v1"
+	joiningv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/scopes/joining/v1"
+	summarizerv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/summarizer/v1"
+	userprovisioningpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/userprovisioning/v2"
+	vnet "github.com/gravitational/teleport/api/gen/proto/go/teleport/vnet/v1"
+	workloadcluster "github.com/gravitational/teleport/api/gen/proto/go/teleport/workloadcluster/v1"
+	workloadidentityv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/workloadidentity/v1"
 	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/api/types/accesslist"
 	convertv1 "github.com/gravitational/teleport/api/types/accesslist/convert/v1"
+	"github.com/gravitational/teleport/api/types/discoveryconfig"
+	discoveryConfigConvertv1 "github.com/gravitational/teleport/api/types/discoveryconfig/convert/v1"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
@@ -21,185 +35,328 @@ type kindObject struct {
 
 type jsonToHCLConverter func(data []byte) (tfgen.Resource, error)
 
+var resourceTypeOverrides = map[string]string{
+	"cluster_auth_preference": "teleport_auth_preference",
+	"db":                      "teleport_database",
+	"github":                  "teleport_github_connector",
+	"oidc":                    "teleport_oidc_connector",
+	"saml":                    "teleport_saml_connector",
+	"token":                   "teleport_provision_token",
+	"node":                    "teleport_server",
+	"device":                  "teleport_device_trust",
+}
+
 var defaultConf = map[string]jsonToHCLConverter{
 	"role": func(data []byte) (tfgen.Resource, error) {
-		var role types.RoleV6
-		if err := utils.FastUnmarshal(data, &role); err != nil {
+		var r types.RoleV6
+		if err := utils.FastUnmarshal(data, &r); err != nil {
 			return nil, trace.Errorf("invalid Teleport role in the input %w", err)
 		}
-		return &role, nil
+		return &r, nil
 	},
 	"user": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r types.UserV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid user: %w", err)
+		}
+		return &r, nil
 	},
 	"trusted_cluster": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r types.TrustedClusterV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid trusted_cluster: %w", err)
+		}
+		return &r, nil
 	},
 	"github": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r types.GithubConnectorV3
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid github connector: %w", err)
+		}
+		return &r, nil
 	},
 	"saml": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.SAMLConnectorV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid saml connector: %w", err)
+		}
+		return &r, nil
 	},
 	"oidc": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.OIDCConnectorV3
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid oidc connector: %w", err)
+		}
+		return &r, nil
 	},
 	"token": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.ProvisionTokenV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid token: %w", err)
+		}
+		return &r, nil
 	},
 	"lock": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.LockV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid lock: %w", err)
+		}
+		return &r, nil
 	},
 	"cluster_networking_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.ClusterNetworkingConfigV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid cluster_networking_config: %w", err)
+		}
+		return &r, nil
 	},
 	"cluster_auth_preference": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.AuthPreferenceV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid cluster_auth_preference: %w", err)
+		}
+		return &r, nil
 	},
 	"bot": func(data []byte) (tfgen.Resource, error) {
-		var bot machineidv1.Bot
-		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &bot); err != nil {
+		var r machineidv1.Bot
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
 			return nil, trace.Errorf("invalid bot: %w", err)
 		}
-		return &bot, nil
+		return &r, nil
 	},
 	"autoupdate_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r autoupdatev1pb.AutoUpdateConfig
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid autoupdate_config: %w", err)
+		}
+		return &r, nil
 	},
 	"autoupdate_version": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r autoupdatev1pb.AutoUpdateVersion
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid autoupdate_version: %w", err)
+		}
+		return &r, nil
 	},
 	"health_check_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r healthcheckconfigv1.HealthCheckConfig
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid health_check_config: %w", err)
+		}
+		return &r, nil
 	},
 	"workload_identity": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r workloadidentityv1.WorkloadIdentity
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid workload_identity: %w", err)
+		}
+		return &r, nil
 	},
 	"app": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.AppV3
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid app: %w", err)
+		}
+		return &r, nil
 	},
 	"db": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.DatabaseV3
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid db: %w", err)
+		}
+		return &r, nil
 	},
 	"kube_cluster": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.KubernetesClusterV3
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid kube_cluster: %w", err)
+		}
+		return &r, nil
 	},
 	"node": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.ServerV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid node: %w", err)
+		}
+		return &r, nil
 	},
 	"saml_idp_service_provider": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.SAMLIdPServiceProviderV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid saml_idp_service_provider: %w", err)
+		}
+		return &r, nil
 	},
 	"access_list": func(data []byte) (tfgen.Resource, error) {
-		// Unmarshal to accesslist.AccessList to apply custom
-		// unmarshalers.
 		var al accesslist.AccessList
 		if err := utils.FastUnmarshal(data, &al); err != nil {
 			return nil, trace.Errorf("invalid access_list: %w", err)
 		}
-
-		// Convert to the proto type, which tfgen requires
-		proto := convertv1.ToProto(&al)
-
-		// Wrap to implement the Resource interface
-		return tfgen.WrapHeaderResource(proto), nil
+		return tfgen.WrapHeaderResource(convertv1.ToProto(&al)), nil
 	},
 	"access_list_member": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var m accesslist.AccessListMember
+		if err := utils.FastUnmarshal(data, &m); err != nil {
+			return nil, trace.Errorf("invalid access_list_member: %w", err)
+		}
+		return tfgen.WrapHeaderResource(convertv1.ToMemberProto(&m)), nil
 	},
 	"access_monitoring_rule": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r accessmonitoringrulesv1.AccessMonitoringRule
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid access_monitoring_rule: %w", err)
+		}
+		return &r, nil
 	},
-
 	"login_rule": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		return nil, trace.Error("login_rule is not yet supported for HCL conversion, since performing the conversion requires running the Terraform provider")
 	},
-
 	"discovery_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var dc discoveryconfig.DiscoveryConfig
+		if err := utils.FastUnmarshal(data, &dc); err != nil {
+			return nil, trace.Errorf("invalid discovery_config: %w", err)
+		}
+		return tfgen.WrapHeaderResource(discoveryConfigConvertv1.ToProto(&dc)), nil
 	},
 	"integration": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r types.IntegrationV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid integration: %w", err)
+		}
+		return &r, nil
 	},
 	"okta_import_rule": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r types.OktaImportRuleV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid okta_import_rule: %w", err)
+		}
+		return &r, nil
 	},
 	"device": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.DeviceV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid device: %w", err)
+		}
+		return &r, nil
 	},
 	"installer": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.InstallerV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid installer: %w", err)
+		}
+		return &r, nil
 	},
 	"session_recording_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.SessionRecordingConfigV2
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid session_recording_config: %w", err)
+		}
+		return &r, nil
 	},
 	"ui_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r types.UIConfigV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid ui_config: %w", err)
+		}
+		return &r, nil
 	},
 	"cluster_maintenance_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r types.ClusterMaintenanceConfigV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid cluster_maintenance_config: %w", err)
+		}
+		return &r, nil
 	},
 	"dynamic_windows_desktop": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r types.DynamicWindowsDesktopV1
+		if err := utils.FastUnmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid dynamic_windows_desktop: %w", err)
+		}
+		return &r, nil
 	},
 	"static_host_user": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r userprovisioningpb.StaticHostUser
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid static_host_user: %w", err)
+		}
+		return &r, nil
 	},
 	"vnet_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r vnet.VnetConfig
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid vnet_config: %w", err)
+		}
+		return &r, nil
 	},
 	"app_auth_config": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r appauthconfigv1.AppAuthConfig
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid app_auth_config: %w", err)
+		}
+		return &r, nil
 	},
 	"db_object_import_rule": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r dbobjectimportrulev1.DatabaseObjectImportRule
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid db_object_import_rule: %w", err)
+		}
+		return &r, nil
 	},
 	"workload_cluster": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r workloadcluster.WorkloadCluster
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid workload_cluster: %w", err)
+		}
+		return &r, nil
 	},
 	"inference_model": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r summarizerv1.InferenceModel
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid inference_model: %w", err)
+		}
+		return &r, nil
 	},
 	"inference_secret": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r summarizerv1.InferenceSecret
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid inference_secret: %w", err)
+		}
+		return &r, nil
 	},
 	"inference_policy": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r summarizerv1.InferencePolicy
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid inference_policy: %w", err)
+		}
+		return &r, nil
 	},
 	"retrieval_model": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r summarizerv1.RetrievalModel
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid retrieval_model: %w", err)
+		}
+		return &r, nil
 	},
 	"scoped_role": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r scopedaccessv1.ScopedRole
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid scoped_role: %w", err)
+		}
+		return &r, nil
 	},
 	"scoped_role_assignment": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
-
+		var r scopedaccessv1.ScopedRoleAssignment
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid scoped_role_assignment: %w", err)
+		}
+		return &r, nil
 	},
 	"scoped_token": func(data []byte) (tfgen.Resource, error) {
-		return nil, nil
+		var r joiningv1.ScopedToken
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &r); err != nil {
+			return nil, trace.Errorf("invalid scoped_token: %w", err)
+		}
+		return &r, nil
 	},
 }
 
@@ -214,7 +371,6 @@ func convertYAMLToHCL(w io.Writer, r io.Reader, config map[string]jsonToHCLConve
 	jsonbytes, err := utils.ToJSON(yamlBuf.Bytes())
 	if err != nil {
 		return trace.Errorf("unable to process input YAML as JSON (which we need to do to convert it to a Teleport resource type): %w", err)
-
 	}
 
 	var o kindObject
@@ -232,7 +388,12 @@ func convertYAMLToHCL(w io.Writer, r io.Reader, config map[string]jsonToHCLConve
 		return trace.Errorf("unable to convert %v to a Terraform resource: %w", o.Kind, err)
 	}
 
-	outbytes, err := tfgen.Generate(res)
+	var opts []tfgen.GenerateOpt
+	if override, ok := resourceTypeOverrides[o.Kind]; ok {
+		opts = append(opts, tfgen.WithResourceType(override))
+	}
+
+	outbytes, err := tfgen.Generate(res, opts...)
 	if err != nil {
 		return trace.Errorf("unable to convert the provided YAML manifest into HCL: %w", err)
 	}
