@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	machineidv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/machineid/v1"
 	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/api/types/accesslist"
 	convertv1 "github.com/gravitational/teleport/api/types/accesslist/convert/v1"
@@ -12,6 +13,7 @@ import (
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Test_convertYAMLToHCL(t *testing.T) {
@@ -34,7 +36,6 @@ func Test_convertYAMLToHCL(t *testing.T) {
 			var al accesslist.AccessList
 			if err := utils.FastUnmarshal(data, &al); err != nil {
 				return nil, trace.Errorf("invalid access_list: %w", err)
-
 			}
 
 			// Convert to the proto type, which tfgen requires
@@ -42,6 +43,13 @@ func Test_convertYAMLToHCL(t *testing.T) {
 
 			// Wrap to implement the Resource interface
 			return tfgen.WrapHeaderResource(proto), nil
+		},
+		"bot": func(data []byte) (tfgen.Resource, error) {
+			var bot machineidv1.Bot
+			if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &bot); err != nil {
+				return nil, trace.Errorf("invalid bot: %w", err)
+			}
+			return &bot, nil
 		},
 	}
 
@@ -140,6 +148,37 @@ support rotation."
       roles = ["support-engineer"]
     }
     title = "Production access for support engineers"
+  }
+}
+`,
+		},
+		{
+			description: "rfd 153 resource",
+			input: `kind: bot
+version: v1
+metadata:
+  name: example
+spec:
+  roles:
+  - editor
+  traits:
+  - name: logins
+    values:
+    - root
+`,
+			expected: `resource "teleport_bot" "example" {
+  version = "v1"
+
+  metadata = {
+    name = "example"
+  }
+
+  spec = {
+    roles = ["editor"]
+    traits = [{
+      name   = "logins"
+      values = ["root"]
+    }]
   }
 }
 `,
