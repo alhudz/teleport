@@ -5,11 +5,14 @@ import (
 	"strings"
 	"testing"
 
+	accesslistv1 "github.com/gravitational/teleport/api/gen/proto/go/teleport/accesslist/v1"
+
 	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func Test_convertYAMLToHCL(t *testing.T) {
@@ -25,6 +28,14 @@ func Test_convertYAMLToHCL(t *testing.T) {
 				return nil, trace.Errorf("invalid Teleport role in the input %w", err)
 			}
 			return &role, nil
+		},
+		"access_list": func(data []byte) (tfgen.Resource, error) {
+			var list accesslistv1.AccessList
+			if err := (protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(data, &list)); err != nil {
+
+				return nil, trace.Errorf("invalid Teleport access_list in the input %w", err)
+			}
+			return tfgen.WrapHeaderResource(&list), nil
 		},
 	}
 
@@ -64,8 +75,69 @@ spec:
 }
 `,
 		},
-	}
+		{
+			description: "access list",
+			input: `version: v1
+kind: access_list
+metadata:
+  name: support-engineers
+spec:
+  title: "Production access for support engineers"
+  audit:
+    recurrence:
+      frequency: 6months
+  description: "Use this Access List to grant access to production to your engineers enrolled in the
+support rotation."
+  owners:
+    - description: "manager of NA support team"
+      name: alice
+  ownership_requires:
+    roles:
+      - manager
+  grants:
+    roles:
+      - support-engineer
+  membership_requires:
+    roles:
+      - engineer
+`,
+			expected: `resource "teleport_access_list" "support-engineers" {
+  header =  {
+    version = "v1"
+    metadata = {
+      name = "support-engineers"
+    }
+  }
 
+  spec = {
+    title = "Production access for support engineers"
+    description = "Use this Access List to grant access to production to your engineers enrolled in the
+support rotation."
+    audit = {
+      recurrence = {
+        frequency = 6
+      }
+    }
+    owners = [
+      {
+        description = "manager of NA support team"
+        name = "alice"
+      }
+    ]
+    ownership_requires = {
+      roles = ["manager"]
+    }
+    grants = {
+      roles = ["support-engineer"]
+    }
+    membership_requires = {
+      roles = ["engineer"]
+    }
+  }
+}
+`,
+		},
+	}
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
 			var buf bytes.Buffer
