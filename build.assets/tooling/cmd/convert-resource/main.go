@@ -33,7 +33,7 @@ type kindObject struct {
 	Kind string
 }
 
-type jsonToHCLConverter func(data []byte) (tfgen.Resource, error)
+type jsonConverter func(data []byte) (tfgen.Resource, error)
 
 var resourceTypeOverrides = map[string]string{
 	"cluster_auth_preference": "teleport_auth_preference",
@@ -57,7 +57,7 @@ var resourceTypeOverrides = map[string]string{
 //  3. For resources that include a header, call utils.FastUnmarshal into the
 //     internal representation of the type, then convert to a Protobuf-based type
 //     and wrap with a header.
-var resourceConfig = map[string]jsonToHCLConverter{
+var resourceConfig = map[string]jsonConverter{
 	"role": func(data []byte) (tfgen.Resource, error) {
 		var r types.RoleV6
 		if err := utils.FastUnmarshal(data, &r); err != nil {
