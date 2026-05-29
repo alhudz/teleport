@@ -414,5 +414,29 @@ func convertYAMLToHCL(w io.Writer, r io.Reader) error {
 	return nil
 }
 
+func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
+	var yamlBuf, kindBuf bytes.Buffer
+	dest := io.MultiWriter(&yamlBuf, &kindBuf)
+	_, err := io.Copy(dest, r)
+	if err != nil {
+		return trace.Errorf("unable to read input YAML: %w", err)
+	}
+
+	jsonbytes, err := utils.ToJSON(yamlBuf.Bytes())
+	if err != nil {
+		return trace.Errorf("unable to process input YAML as JSON (which we need to do to convert it to a Teleport resource type): %w", err)
+	}
+
+	var o kindObject
+	if err = yaml.Unmarshal(jsonbytes, &o); err != nil {
+		return trace.Errorf("unable to detect a kind in the input resource: %w", err)
+	}
+
+	convert, ok := resourceConfig[o.Kind]
+	if !ok {
+		return trace.Errorf("converting %v to a Kubernetes operator resource is not supported", o.Kind)
+	}
+}
+
 func main() {
 }

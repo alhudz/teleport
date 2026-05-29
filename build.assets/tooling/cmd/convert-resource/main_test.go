@@ -155,3 +155,93 @@ spec:
 		})
 	}
 }
+
+func Test_convertYAMLToKubernetes(t *testing.T) {
+	type testCase struct {
+		description string
+		input       string
+		expected    string
+	}
+
+	cases := []testCase{
+		{
+			description: "simple role",
+			input: `kind: role
+version: v7
+metadata:
+  name: manager
+spec:
+  allow:
+    rules:
+      - resources: ['user', 'role']
+        verbs: ['list','read']
+      - resources: ['session', 'event']
+        verbs: ['list', 'read']
+`,
+			expected: `apiVersion: resources.teleport.dev/v1
+kind: TeleportRoleV8
+metadata:
+  name: manager
+spec:
+  allow:
+    rules:
+      - resources: ['user', 'role']
+        verbs: ['list','read']
+      - resources: ['session', 'event']
+        verbs: ['list', 'read']
+`,
+		},
+		// 		{
+		// 			description: "access list",
+		// 			input: `version: v1
+		// kind: access_list
+		// metadata:
+		//   name: support-engineers
+		// spec:
+		//   title: "Production access for support engineers"
+		//   audit:
+		//     recurrence:
+		//       frequency: 6months
+		//   description: "Use this Access List to grant access to production to your engineers enrolled in the
+		// support rotation."
+		//   owners:
+		//     - description: "manager of NA support team"
+		//       name: alice
+		//   ownership_requires:
+		//     roles:
+		//       - manager
+		//   grants:
+		//     roles:
+		//       - support-engineer
+		//   membership_requires:
+		//     roles:
+		//       - engineer
+		// `,
+		// 			expected: ``,
+		// 		},
+		//		{
+		//			description: "rfd 153 resource",
+		//			input: `kind: bot
+		//version: v1
+		//metadata:
+		//  name: example
+		//spec:
+		//  roles:
+		//  - editor
+		//  traits:
+		//  - name: logins
+		//    values:
+		//    - root
+		//`,
+		//			expected: ``,
+		//		},
+	}
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := convertYAMLToKubernetes(&buf, strings.NewReader(c.input))
+			assert.NoError(t, err)
+			assert.Equal(t, c.expected, buf.String())
+		})
+	}
+}
