@@ -338,3 +338,42 @@ func (r resourceTeleportAppAuthConfig) ImportState(ctx context.Context, req tfsd
 		return
 	}
 }
+
+// ModifyPlan modifies the planned value, normalizing null values.
+func (r resourceTeleportAppAuthConfig) ModifyPlan(ctx context.Context, req tfsdk.ModifyResourcePlanRequest, resp *tfsdk.ModifyResourcePlanResponse) {
+	// If the entire plan is null, the resource is planned for destruction.
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	var plan types.Object
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var config types.Object
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	appauthconfig := &appauthconfigv1.AppAuthConfig{}
+	resp.Diagnostics.Append(schemav1.CopyAppAuthConfigFromTerraform(ctx, config, appauthconfig)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	appauthconfigResource := appauthconfig
+
+	appauthconfig = appauthconfigResource
+
+	resp.Diagnostics.Append(schemav1.CopyAppAuthConfigToTerraform(ctx, appauthconfig, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	plan.Attrs["spec"] = config.Attrs["spec"]
+
+	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
+}
