@@ -50,6 +50,7 @@ import (
 	"github.com/gravitational/teleport/lib/asciitable"
 	"github.com/gravitational/teleport/lib/auth/authclient"
 	"github.com/gravitational/teleport/lib/client"
+	"github.com/gravitational/teleport/lib/scopes"
 	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/devicetrust"
 	"github.com/gravitational/teleport/lib/itertools/stream"
@@ -70,6 +71,7 @@ type ResourceCommand struct {
 	config      *servicecfg.Config
 	ref         services.Ref
 	refs        services.Refs
+	sqn         string // optional scope-qualified name (second positional arg for scoped resource types)
 	format      string
 	namespace   string
 	withSecrets bool
@@ -151,9 +153,11 @@ func (rc *ResourceCommand) Initialize(app *kingpin.Application, _ *tctlcfg.Globa
 	Examples:
 	$ tctl rm role/devs
 	$ tctl rm cluster/main`).SetValue(&rc.ref)
+	rc.deleteCmd.Arg("scope::name", `Scope-qualified name for scoped resource types, e.g. "/staging/west::myrole"`).StringVar(&rc.sqn)
 
 	rc.getCmd = app.Command("get", "Print a YAML declaration of various Teleport resources.")
 	rc.getCmd.Arg("resources", "Resource spec: 'type/[name][,...]' or 'all'").Required().SetValue(&rc.refs)
+	rc.getCmd.Arg("scope::name", `Scope-qualified name for scoped resource types, e.g. "/staging/west::myrole"`).StringVar(&rc.sqn)
 	rc.getCmd.Flag("format", "Output format: 'yaml', 'json' or 'text'").Default(teleport.YAML).StringVar(&rc.format)
 	rc.getCmd.Flag("namespace", "Namespace of the resources").Hidden().Default(apidefaults.Namespace).StringVar(&rc.namespace)
 	rc.getCmd.Flag("with-secrets", "Include secrets in resources like certificate authorities or OIDC connectors").Default("false").BoolVar(&rc.withSecrets)
@@ -216,10 +220,19 @@ func (rc *ResourceCommand) GetRef() services.Ref {
 
 // Get prints one or many resources of a certain type
 func (rc *ResourceCommand) Get(ctx context.Context, client *authclient.Client) error {
+	if rc.sqn != "" && (rc.refs.IsAll() || len(rc.refs) != 1) {
+		return trace.BadParameter("a scope-qualified name cannot be combined with multiple resource types")
+	}
+
 	// Some resources require MFA to list with secrets. Check if we are trying to
 	// get any such resources so we can prompt for MFA preemptively.
 	mfaKinds := []string{types.KindCertAuthority}
 	for kind, handler := range resources.Handlers() {
+		if handler.MFARequired() {
+			mfaKinds = append(mfaKinds, kind)
+		}
+	}
+	for kind, handler := range resources.ScopedHandlers() {
 		if handler.MFARequired() {
 			mfaKinds = append(mfaKinds, kind)
 		}
@@ -369,14 +382,15 @@ func (rc *ResourceCommand) Create(ctx context.Context, client *authclient.Client
 
 		count++
 
+		opts := resources.CreateOpts{
+			Force:   rc.force,
+			Confirm: rc.confirm,
+		}
+
 		// Try looking for a resource handler
 		if resourceHandler, found := resources.Handlers()[raw.Kind]; found {
 			// only return in case of error, to create multiple resources
 			// in case if yaml spec is a list
-			opts := resources.CreateOpts{
-				Force:   rc.force,
-				Confirm: rc.confirm,
-			}
 			if err := resourceHandler.Create(ctx, client, raw, opts); err != nil {
 				if trace.IsAlreadyExists(err) {
 					return trace.Wrap(err, "use -f or --force flag to overwrite")
@@ -389,6 +403,21 @@ func (rc *ResourceCommand) Create(ctx context.Context, client *authclient.Client
 			// continue to next resource
 			continue
 		}
+
+		// Try looking for a scoped resource handler (scope comes from the YAML body).
+		if scopedHandler, found := resources.ScopedHandlers()[raw.Kind]; found {
+			if err := scopedHandler.Create(ctx, client, raw, opts); err != nil {
+				if trace.IsAlreadyExists(err) {
+					return trace.Wrap(err, "use -f or --force flag to overwrite")
+				}
+				if trace.IsNotImplemented(err) {
+					return trace.BadParameter("creating resources of type %q is not supported", raw.Kind)
+				}
+				return trace.Wrap(err)
+			}
+			continue
+		}
+
 		// Else fallback to the legacy logic
 
 		// locate the creator function for a given resource kind:
@@ -620,7 +649,24 @@ func (rc *ResourceCommand) Delete(ctx context.Context, client *authclient.Client
 		)
 	}
 
-	// Try looking for a resource handler
+	// SQN present → scoped delete path.
+	if rc.sqn != "" {
+		if err := scopes.StrongValidateQualifiedName(rc.sqn); err != nil {
+			return trace.Wrap(err)
+		}
+		sqn, err := scopes.ParseQualifiedName(rc.sqn)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		subKind := rc.ref.Name // Name→SubKind promotion
+		handler, found := resources.ScopedHandlers()[rc.ref.Kind]
+		if !found {
+			return trace.BadParameter("resource type %q does not support scope-qualified names", rc.ref.Kind)
+		}
+		return trace.Wrap(handler.Delete(ctx, client, subKind, sqn))
+	}
+
+	// Classic handler path.
 	if resourceHandler, found := resources.Handlers()[rc.ref.Kind]; found {
 		if err := resourceHandler.Delete(ctx, client, rc.ref); err != nil {
 			if trace.IsNotImplemented(err) {
@@ -629,6 +675,11 @@ func (rc *ResourceCommand) Delete(ctx context.Context, client *authclient.Client
 			return trace.Wrap(err, "error deleting resource %q of type %q", rc.ref.Name, rc.ref.Kind)
 		}
 		return nil
+	}
+
+	// Scoped-only kind accessed without SQN → helpful error.
+	if _, found := resources.ScopedHandlers()[rc.ref.Kind]; found {
+		return trace.BadParameter("use 'tctl rm %s <scope>::<name>' to delete a %s", rc.ref.Kind, rc.ref.Kind)
 	}
 
 	// Else fallback to the legacy logic
@@ -815,9 +866,29 @@ func (rc *ResourceCommand) getCollection(ctx context.Context, client *authclient
 		return nil, trace.BadParameter("specify resource to list, e.g. 'tctl get roles'")
 	}
 
-	// Looking if the resource has been converted to the handler format.
+	opts := resources.GetOpts{WithSecrets: rc.withSecrets}
+
+	// SQN present → scoped path. Name→SubKind promotion: when a SQN is the second arg,
+	// any name-looking segment in the first arg is actually a sub-kind specifier.
+	if rc.sqn != "" {
+		if err := scopes.StrongValidateQualifiedName(rc.sqn); err != nil {
+			return nil, trace.Wrap(err)
+		}
+		sqn, err := scopes.ParseQualifiedName(rc.sqn)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		subKind := rc.ref.Name // promoted from ParseRef's "name" slot
+		handler, found := resources.ScopedHandlers()[rc.ref.Kind]
+		if !found {
+			return nil, trace.BadParameter("resource type %q does not support scope-qualified names", rc.ref.Kind)
+		}
+		return handler.Get(ctx, client, subKind, &sqn, opts)
+	}
+
+	// Classic handler path.
 	if handler, found := resources.Handlers()[rc.ref.Kind]; found {
-		coll, err := handler.Get(ctx, client, rc.ref, resources.GetOpts{WithSecrets: rc.withSecrets})
+		coll, err := handler.Get(ctx, client, rc.ref, opts)
 		if err != nil {
 			if trace.IsNotImplemented(err) {
 				return nil, &errNotSupported{trace.BadParameter("getting %q is not supported", rc.ref.String())}
@@ -826,6 +897,14 @@ func (rc *ResourceCommand) getCollection(ctx context.Context, client *authclient
 		}
 		return coll, nil
 	}
+
+	// Scoped handler fallback (no SQN): list-all, or list-by-subkind if a subkind segment
+	// was provided in the first arg (Name→SubKind promotion applies here too).
+	if handler, found := resources.ScopedHandlers()[rc.ref.Kind]; found {
+		subKind := rc.ref.Name
+		return handler.Get(ctx, client, subKind, nil, opts)
+	}
+
 	// The resource hasn't been migrated yet, falling back to the old logic.
 
 	switch rc.ref.Kind {
@@ -1212,6 +1291,15 @@ func (rc *ResourceCommand) listKinds() error {
 			kind,
 			strings.Join(handler.SupportedCommands(), ","),
 			yesOrEmpty(handler.Singleton()),
+			yesOrEmpty(handler.MFARequired()),
+			handler.Description(),
+		})
+	}
+	for kind, handler := range resources.ScopedHandlers() {
+		rows = append(rows, []string{
+			kind,
+			strings.Join(handler.SupportedCommands(), ","),
+			"", // scoped resources are never singletons
 			yesOrEmpty(handler.MFARequired()),
 			handler.Description(),
 		})
