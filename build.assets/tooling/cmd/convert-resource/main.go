@@ -40,7 +40,7 @@ type kubeConversionAttributes struct {
 	subKindToResourceKind map[string]string
 	apiVersion            string
 	kind                  string
-	ignoredFields         []string
+	ignoredSpecFields     []string
 }
 
 type conversionRule struct {
@@ -110,6 +110,11 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid github connector: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion:        "resources.teleport.dev/v3",
+			kind:              "TeleportGithubConnector",
+			ignoredSpecFields: []string{"teams_to_logins"},
 		},
 	},
 	"saml": {
@@ -252,7 +257,7 @@ var resourceConfig = map[string]conversionRule{
 				"openssh":         "TeleportOpenSSHServerV2",
 				"openssh-ec2-ice": "TeleportOpenSSHICEServerV2",
 			},
-			ignoredFields: []string{"cmd_labels", "component_features"},
+			ignoredSpecFields: []string{"cmd_labels", "component_features"},
 		},
 	},
 	"saml_idp_service_provider": {
@@ -576,8 +581,12 @@ func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
 	}
 	delete(original, "sub_kind")
 
-	for _, f := range convert.kubernetes.ignoredFields {
-		delete(original, f)
+	spec, ok := original["spec"]
+	specmap, mok := spec.(map[string]any)
+	if ok && mok {
+		for _, f := range convert.kubernetes.ignoredSpecFields {
+			delete(specmap, f)
+		}
 	}
 
 	outbytes, err := yaml.Marshal(original)

@@ -225,6 +225,44 @@ spec:
   hostname: <Var name="ssh-server-hostname" />
 `,
 		},
+		{
+			description: "github",
+			input: `kind: github
+metadata:
+  name: github
+spec:
+  client_id: <client-id>
+  client_secret: <client-secret>
+  display: GitHub
+  endpoint_url: ""
+  redirect_url: https://<proxy-address>/v1/webapi/github/callback
+  teams_to_logins: null
+  teams_to_roles:
+    - organization: ORG-NAME
+      roles:
+        - access
+        - editor
+      team: github-team
+version: v3
+`,
+			expected: `apiVersion: resources.teleport.dev/v3
+kind: TeleportGithubConnector
+metadata:
+  name: github
+spec:
+  client_id: <client-id>
+  client_secret: <client-secret>
+  display: GitHub
+  endpoint_url: ""
+  redirect_url: https://<proxy-address>/v1/webapi/github/callback
+  teams_to_roles:
+  - organization: ORG-NAME
+    roles:
+    - access
+    - editor
+    team: github-team
+`,
+		},
 
 		// 		{
 		// 			description: "access list",
