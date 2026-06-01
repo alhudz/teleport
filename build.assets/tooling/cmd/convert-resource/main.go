@@ -623,10 +623,8 @@ var resourceConfig = map[string]conversionRule{
 }
 
 func convertYAMLToHCL(w io.Writer, r io.Reader) error {
-	var yamlBuf, kindBuf bytes.Buffer
-	dest := io.MultiWriter(&yamlBuf, &kindBuf)
-	_, err := io.Copy(dest, r)
-	if err != nil {
+	var yamlBuf bytes.Buffer
+	if _, err := io.Copy(&yamlBuf, r); err != nil {
 		return trace.Errorf("unable to read input YAML: %w", err)
 	}
 
@@ -699,10 +697,8 @@ func stripEmptyFields(m map[string]any) {
 }
 
 func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
-	var yamlBuf, kindBuf bytes.Buffer
-	dest := io.MultiWriter(&yamlBuf, &kindBuf)
-	_, err := io.Copy(dest, r)
-	if err != nil {
+	var yamlBuf bytes.Buffer
+	if _, err := io.Copy(&yamlBuf, r); err != nil {
 		return trace.Errorf("unable to read input YAML: %w", err)
 	}
 
