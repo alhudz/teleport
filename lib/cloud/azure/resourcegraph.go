@@ -30,6 +30,18 @@ import (
 	"github.com/gravitational/teleport"
 )
 
+const (
+	// resourceGraphPageSize is the number of results to request per page.
+	// According to Azure Docs, the maximum page size is 1000, which is what we use here.
+	// https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/work-with-data#paging-results
+	resourceGraphPageSize = 1_000
+
+	// resourceGraphMaxPages is the maximum number of pages to fetch when paginating through results.
+	// Azure Docs don't specify a maximum number of pages, but setting a high limit here is a safeguard against infinite loops.
+	// With a page size of 1000, fetching 10000 pages allows us to fetch up to 10 million resources, which should be more than enough.
+	resourceGraphMaxPages = 10_000
+)
+
 // ResourceGraphClient is a client for Azure Resource Graph (ARG) VM discovery.
 type ResourceGraphClient interface {
 }
@@ -57,4 +69,36 @@ func NewResourceGraphClient(cred azcore.TokenCredential, options *arm.ClientOpti
 		logger:       slog.With(teleport.ComponentKey, "azure_resource_graph_client"),
 		resourcesAPI: client,
 	}, nil
+}
+
+func queryResultGetString(result map[string]any, key string) (string, error) {
+	if v, ok := result[key]; ok {
+		if s, ok := v.(string); ok && s != "" {
+			return s, nil
+		}
+	}
+	return "", trace.BadParameter("missing or invalid key %q in result", key)
+}
+
+func queryResultGetKeyValueString(ctx context.Context, log *slog.Logger, keyVal any) (map[string]string, error) {
+	if keyVal == nil {
+		return map[string]string{}, nil
+	}
+
+	result, ok := keyVal.(map[string]any)
+	if !ok {
+		return nil, trace.BadParameter("expected string key-value map, got %T", keyVal)
+	}
+
+	out := make(map[string]string, len(result))
+	for k, v := range result {
+		valueAsString, ok := v.(string)
+		if !ok {
+			log.WarnContext(ctx, "skipping non-string value in key-value map", "key", k, "value", v)
+			continue
+		}
+		out[k] = valueAsString
+	}
+
+	return out, nil
 }
