@@ -190,9 +190,8 @@ func deleteScopedToken(ctx context.Context, client *authclient.Client, subKind s
 
 func ScopedTokenTextHelper(tokens []*joiningv1.ScopedToken, withSecrets bool) *bytes.Buffer {
 	headers := []string{
-		"Token",
+		"ID",
 		"Type",
-		"Scope",
 		"Assigns Scope",
 		"Labels",
 		"Expiry Time (UTC)",
@@ -212,9 +211,8 @@ func ScopedTokenTextHelper(tokens []*joiningv1.ScopedToken, withSecrets bool) *b
 			expiry = fmt.Sprintf("%s (%s)", exptime, expdur.String())
 		}
 		row := []string{
-			t.GetMetadata().GetName(),
+			scopes.QualifiedName{Scope: t.GetScope(), Name: t.GetMetadata().GetName()}.String(),
 			strings.Join(t.GetSpec().GetRoles(), ","),
-			t.GetScope(),
 			t.GetSpec().GetAssignedScope(),
 			PrintMetadataLabels(t.GetMetadata().Labels),
 			expiry,

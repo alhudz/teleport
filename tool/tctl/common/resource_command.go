@@ -71,7 +71,7 @@ type ResourceCommand struct {
 	config      *servicecfg.Config
 	ref         services.Ref
 	refs        services.Refs
-	sqn         string // optional scope-qualified name (second positional arg for scoped resource types)
+	id          string // optional identifier: SQN (scope::name) or bare name (second positional arg)
 	format      string
 	namespace   string
 	withSecrets bool
@@ -153,11 +153,11 @@ func (rc *ResourceCommand) Initialize(app *kingpin.Application, _ *tctlcfg.Globa
 	Examples:
 	$ tctl rm role/devs
 	$ tctl rm cluster/main`).SetValue(&rc.ref)
-	rc.deleteCmd.Arg("scope::name", `Scope-qualified name for scoped resource types, e.g. "/staging/west::myrole"`).StringVar(&rc.sqn)
+	rc.deleteCmd.Arg("id", `Resource identifier: scope-qualified name (e.g. "/staging/west::myrole") or bare name for classic kinds`).StringVar(&rc.id)
 
 	rc.getCmd = app.Command("get", "Print a YAML declaration of various Teleport resources.")
 	rc.getCmd.Arg("resources", "Resource spec: 'type/[name][,...]' or 'all'").Required().SetValue(&rc.refs)
-	rc.getCmd.Arg("scope::name", `Scope-qualified name for scoped resource types, e.g. "/staging/west::myrole"`).StringVar(&rc.sqn)
+	rc.getCmd.Arg("id", `Resource identifier: scope-qualified name (e.g. "/staging/west::myrole") or bare name for classic kinds`).StringVar(&rc.id)
 	rc.getCmd.Flag("format", "Output format: 'yaml', 'json' or 'text'").Default(teleport.YAML).StringVar(&rc.format)
 	rc.getCmd.Flag("namespace", "Namespace of the resources").Hidden().Default(apidefaults.Namespace).StringVar(&rc.namespace)
 	rc.getCmd.Flag("with-secrets", "Include secrets in resources like certificate authorities or OIDC connectors").Default("false").BoolVar(&rc.withSecrets)
@@ -220,7 +220,7 @@ func (rc *ResourceCommand) GetRef() services.Ref {
 
 // Get prints one or many resources of a certain type
 func (rc *ResourceCommand) Get(ctx context.Context, client *authclient.Client) error {
-	if rc.sqn != "" && (rc.refs.IsAll() || len(rc.refs) != 1) {
+	if rc.id != "" && (rc.refs.IsAll() || len(rc.refs) != 1) {
 		return trace.BadParameter("a scope-qualified name cannot be combined with multiple resource types")
 	}
 
@@ -649,24 +649,44 @@ func (rc *ResourceCommand) Delete(ctx context.Context, client *authclient.Client
 		)
 	}
 
-	// SQN present → scoped delete path.
-	if rc.sqn != "" {
-		if err := scopes.StrongValidateQualifiedName(rc.sqn); err != nil {
-			return trace.Wrap(err)
-		}
-		sqn, err := scopes.ParseQualifiedName(rc.sqn)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	// Second positional arg present: Name→SubKind promotion fires; routing by :: presence.
+	if rc.id != "" {
 		subKind := rc.ref.Name // Name→SubKind promotion
-		handler, found := resources.ScopedHandlers()[rc.ref.Kind]
-		if !found {
-			return trace.BadParameter("resource type %q does not support scope-qualified names", rc.ref.Kind)
+		if strings.Contains(rc.id, scopes.QualifiedNameSeparator) {
+			// SQN path → ScopedHandlers.
+			if err := scopes.StrongValidateQualifiedName(rc.id); err != nil {
+				return trace.Wrap(err)
+			}
+			sqn, err := scopes.ParseQualifiedName(rc.id)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			handler, found := resources.ScopedHandlers()[rc.ref.Kind]
+			if !found {
+				return trace.BadParameter("resource type %q does not support scope-qualified names", rc.ref.Kind)
+			}
+			return trace.Wrap(handler.Delete(ctx, client, subKind, sqn))
 		}
-		return trace.Wrap(handler.Delete(ctx, client, subKind, sqn))
+		// Bare-name path → classic Handlers.
+		ref := rc.ref
+		ref.SubKind = subKind
+		ref.Name = rc.id
+		if handler, found := resources.Handlers()[rc.ref.Kind]; found {
+			if err := handler.Delete(ctx, client, ref); err != nil {
+				if trace.IsNotImplemented(err) {
+					return trace.BadParameter("deleting resources of type %q is not supported", rc.ref.Kind)
+				}
+				return trace.Wrap(err, "error deleting resource %q of type %q", ref.Name, ref.Kind)
+			}
+			return nil
+		}
+		if _, found := resources.ScopedHandlers()[rc.ref.Kind]; found {
+			return trace.BadParameter("resource type %q requires a scope-qualified name: tctl rm %s <scope>::%s", rc.ref.Kind, rc.ref.Kind, rc.id)
+		}
+		return trace.BadParameter("two-arg form not supported for %q; use tctl rm %s/%s instead", rc.ref.Kind, rc.ref.Kind, rc.id)
 	}
 
-	// Classic handler path.
+	// Classic handler path (no second arg).
 	if resourceHandler, found := resources.Handlers()[rc.ref.Kind]; found {
 		if err := resourceHandler.Delete(ctx, client, rc.ref); err != nil {
 			if trace.IsNotImplemented(err) {
@@ -677,7 +697,7 @@ func (rc *ResourceCommand) Delete(ctx context.Context, client *authclient.Client
 		return nil
 	}
 
-	// Scoped-only kind accessed without SQN → helpful error.
+	// Scoped-only kind accessed without an identifier → helpful error.
 	if _, found := resources.ScopedHandlers()[rc.ref.Kind]; found {
 		return trace.BadParameter("use 'tctl rm %s <scope>::<name>' to delete a %s", rc.ref.Kind, rc.ref.Kind)
 	}
@@ -868,22 +888,44 @@ func (rc *ResourceCommand) getCollection(ctx context.Context, client *authclient
 
 	opts := resources.GetOpts{WithSecrets: rc.withSecrets}
 
-	// SQN present → scoped path. Name→SubKind promotion: when a SQN is the second arg,
-	// any name-looking segment in the first arg is actually a sub-kind specifier.
-	if rc.sqn != "" {
-		if err := scopes.StrongValidateQualifiedName(rc.sqn); err != nil {
-			return nil, trace.Wrap(err)
-		}
-		sqn, err := scopes.ParseQualifiedName(rc.sqn)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+	// Second positional arg present: Name→SubKind promotion always fires.
+	// Any name-looking segment in the first arg is a sub-kind specifier; the actual
+	// resource identifier comes from rc.id. Routing is determined by :: presence.
+	if rc.id != "" {
 		subKind := rc.ref.Name // promoted from ParseRef's "name" slot
-		handler, found := resources.ScopedHandlers()[rc.ref.Kind]
-		if !found {
-			return nil, trace.BadParameter("resource type %q does not support scope-qualified names", rc.ref.Kind)
+		if strings.Contains(rc.id, scopes.QualifiedNameSeparator) {
+			// SQN path → ScopedHandlers.
+			if err := scopes.StrongValidateQualifiedName(rc.id); err != nil {
+				return nil, trace.Wrap(err)
+			}
+			sqn, err := scopes.ParseQualifiedName(rc.id)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			handler, found := resources.ScopedHandlers()[rc.ref.Kind]
+			if !found {
+				return nil, trace.BadParameter("resource type %q does not support scope-qualified names", rc.ref.Kind)
+			}
+			return handler.Get(ctx, client, subKind, &sqn, opts)
 		}
-		return handler.Get(ctx, client, subKind, &sqn, opts)
+		// Bare-name path → classic Handlers.
+		ref := rc.ref
+		ref.SubKind = subKind
+		ref.Name = rc.id
+		if handler, found := resources.Handlers()[rc.ref.Kind]; found {
+			coll, err := handler.Get(ctx, client, ref, opts)
+			if err != nil {
+				if trace.IsNotImplemented(err) {
+					return nil, &errNotSupported{trace.BadParameter("getting %q is not supported", ref.String())}
+				}
+				return nil, trace.Wrap(err, "getting resource %q of type %q", ref.Name, ref.Kind)
+			}
+			return coll, nil
+		}
+		if _, found := resources.ScopedHandlers()[rc.ref.Kind]; found {
+			return nil, trace.BadParameter("resource type %q requires a scope-qualified name: tctl get %s <scope>::%s", rc.ref.Kind, rc.ref.Kind, rc.id)
+		}
+		return nil, trace.BadParameter("two-arg form not supported for %q; use tctl get %s/%s instead", rc.ref.Kind, rc.ref.Kind, rc.id)
 	}
 
 	// Classic handler path.

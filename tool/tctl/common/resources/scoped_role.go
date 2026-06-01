@@ -52,13 +52,10 @@ func (c *scopedRoleCollection) Resources() []types.Resource {
 }
 
 func (c *scopedRoleCollection) WriteText(w io.Writer, verbose bool) error {
-	headers := []string{"Scope", "Name"}
+	headers := []string{"ID"}
 	rows := make([][]string, len(c.roles))
 	for i, item := range c.roles {
-		rows[i] = []string{
-			item.GetScope(),
-			item.GetMetadata().GetName(),
-		}
+		rows[i] = []string{scopes.QualifiedName{Scope: item.GetScope(), Name: item.GetMetadata().GetName()}.String()}
 	}
 
 	t := asciitable.MakeTable(headers, rows...)

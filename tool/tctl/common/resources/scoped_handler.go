@@ -34,6 +34,7 @@ import (
 // access can register in both Handlers() and ScopedHandlers().
 func ScopedHandlers() map[string]ScopedHandler {
 	return map[string]ScopedHandler{
+		types.KindNode:                        serverScopedHandler(),
 		scopedaccess.KindScopedRole:           scopedRoleScopedHandler(),
 		types.KindScopedToken:                 scopedTokenScopedHandler(),
 		scopedaccess.KindScopedRoleAssignment: scopedRoleAssignmentScopedHandler(),

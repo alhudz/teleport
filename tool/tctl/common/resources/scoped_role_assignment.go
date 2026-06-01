@@ -54,7 +54,7 @@ func (c *ScopedRoleAssignmentCollection) Resources() []types.Resource {
 }
 
 func (c *ScopedRoleAssignmentCollection) WriteText(w io.Writer, verbose bool) error {
-	headers := []string{"SubKind", "Scope", "Name", "User", "Assigns"}
+	headers := []string{"SubKind", "ID", "User", "Assigns"}
 	rows := make([][]string, len(c.roleAssignments))
 
 	for i, item := range c.roleAssignments {
@@ -62,11 +62,9 @@ func (c *ScopedRoleAssignmentCollection) WriteText(w io.Writer, verbose bool) er
 		for j, subAssignment := range item.GetSpec().GetAssignments() {
 			assigns[j] = fmt.Sprintf("%s -> %s", subAssignment.GetRole(), subAssignment.GetScope())
 		}
-
 		rows[i] = []string{
 			item.GetSubKind(),
-			item.GetScope(),
-			item.GetMetadata().GetName(),
+			scopes.QualifiedName{Scope: item.GetScope(), Name: item.GetMetadata().GetName()}.String(),
 			item.GetSpec().GetUser(),
 			strings.Join(assigns, ", "),
 		}

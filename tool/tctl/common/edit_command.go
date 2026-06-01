@@ -54,7 +54,7 @@ type EditCommand struct {
 	cmd     *kingpin.CmdClause
 	config  *servicecfg.Config
 	ref     services.Ref
-	sqn     string // optional scope-qualified name (second positional arg for scoped resource types)
+	id      string // optional identifier: SQN (scope::name) or bare name (second positional arg)
 	confirm bool
 
 	// Editor is used by tests to inject the editing mechanism
@@ -67,7 +67,7 @@ func (e *EditCommand) Initialize(app *kingpin.Application, _ *tctlcfg.GlobalCLIF
 	e.config = config
 	e.cmd = app.Command("edit", "Edit a Teleport resource.")
 	e.cmd.Arg("resource type/resource name", `Resource to update, e.g., "user/myuser"`).SetValue(&e.ref)
-	e.cmd.Arg("scope::name", `Scope-qualified name for scoped resource types, e.g. "/staging/west::myrole"`).StringVar(&e.sqn)
+	e.cmd.Arg("id", `Resource identifier: scope-qualified name (e.g. "/staging/west::myrole") or bare name for classic kinds`).StringVar(&e.id)
 	e.cmd.Flag("confirm", "Confirm an unsafe or temporary resource update").Hidden().BoolVar(&e.confirm)
 }
 
@@ -119,7 +119,7 @@ func (e *EditCommand) editResource(ctx context.Context, client *authclient.Clien
 
 	rc := &ResourceCommand{
 		refs:        services.Refs{e.ref},
-		sqn:         e.sqn,
+		id:          e.id,
 		format:      teleport.YAML,
 		Stdout:      f,
 		filename:    f.Name(),

@@ -24,11 +24,11 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// qualifiedSeparator joins a scope and name into a scope-qualified name string.
-// The colon character cannot appear in a valid scope segment (it does not match
-// segmentRegexp), so "::" is an unambiguous separator for any strongly-validated
-// scope.
-const qualifiedSeparator = "::"
+// QualifiedNameSeparator is the separator between scope and name in a
+// scope-qualified name string. The colon character cannot appear in a valid
+// scope segment (it does not match segmentRegexp), so "::" is an unambiguous
+// separator for any strongly-validated scope.
+const QualifiedNameSeparator = "::"
 
 // QualifiedName pairs a scope with a resource name to uniquely identify a scoped
 // resource. The canonical string form is "<scope>::<name>", e.g. "/staging/west::myrole".
@@ -41,7 +41,7 @@ type QualifiedName struct {
 
 // String returns encodes the string representation of the QualifiedName.
 func (q QualifiedName) String() string {
-	return q.Scope + qualifiedSeparator + q.Name
+	return q.Scope + QualifiedNameSeparator + q.Name
 }
 
 // ParseQualifiedName parses a scope-qualified name string into its scope and name
@@ -50,16 +50,16 @@ func (q QualifiedName) String() string {
 // the format of the scope or name components; use [StrongValidateQualifiedName] or
 // [WeakValidateQualifiedName] for validation.
 func ParseQualifiedName(sqn string) (QualifiedName, error) {
-	idx := strings.Index(sqn, qualifiedSeparator)
+	idx := strings.Index(sqn, QualifiedNameSeparator)
 	if idx < 0 {
-		return QualifiedName{}, trace.BadParameter("scope-qualified name %q is missing %q separator", sqn, qualifiedSeparator)
+		return QualifiedName{}, trace.BadParameter("scope-qualified name %q is missing %q separator", sqn, QualifiedNameSeparator)
 	}
 
 	scope := sqn[:idx]
-	name := sqn[idx+len(qualifiedSeparator):]
+	name := sqn[idx+len(QualifiedNameSeparator):]
 
 	if scope == "" {
-		return QualifiedName{}, trace.BadParameter("scope-qualified name %q has empty scope (root scope should be written as %q)", sqn, Root+qualifiedSeparator+name)
+		return QualifiedName{}, trace.BadParameter("scope-qualified name %q has empty scope (root scope should be written as %q)", sqn, Root+QualifiedNameSeparator+name)
 	}
 
 	if name == "" {
