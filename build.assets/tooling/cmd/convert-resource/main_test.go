@@ -199,6 +199,33 @@ spec:
       - read
 `,
 		},
+		{
+			description: "openssh server",
+			input: `kind: node
+version: v2
+sub_kind: openssh
+metadata:
+  name: a100fdd0-52db-4eca-a7ab-c3afa7a1564a
+  labels:
+    env: test
+    team: engineering
+spec:
+  addr: <Var name="198.51.100.1:22" />
+  hostname: <Var name="ssh-server-hostname" />
+`,
+			expected: `apiVersion: resources.teleport.dev/v1
+kind: TeleportOpenSSHServerV2
+metadata:
+  labels:
+    env: test
+    team: engineering
+  name: a100fdd0-52db-4eca-a7ab-c3afa7a1564a
+spec:
+  addr: <Var name="198.51.100.1:22" />
+  hostname: <Var name="ssh-server-hostname" />
+`,
+		},
+
 		// 		{
 		// 			description: "access list",
 		// 			input: `version: v1

@@ -246,6 +246,14 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			subKindToResourceKind: map[string]string{
+				"openssh":         "TeleportOpenSSHServerV2",
+				"openssh-ec2-ice": "TeleportOpenSSHICEServerV2",
+			},
+			ignoredFields: []string{"cmd_labels", "component_features"},
+		},
 	},
 	"saml_idp_service_provider": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -566,6 +574,7 @@ func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
 		}
 		original["kind"] = convert.kubernetes.subKindToResourceKind[sk.(string)]
 	}
+	delete(original, "sub_kind")
 
 	for _, f := range convert.kubernetes.ignoredFields {
 		delete(original, f)
