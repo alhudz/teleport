@@ -239,7 +239,7 @@ spec:
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
 			var buf bytes.Buffer
-			err := convertYAMLToKubernetes(&buf, strings.NewReader(c.input))
+			err := convertYAMLtoKubernetes(&buf, strings.NewReader(c.input))
 			assert.NoError(t, err)
 			assert.Equal(t, c.expected, buf.String())
 		})

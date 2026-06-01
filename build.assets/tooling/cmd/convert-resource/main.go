@@ -23,6 +23,7 @@ import (
 	convertv1 "github.com/gravitational/teleport/api/types/accesslist/convert/v1"
 	"github.com/gravitational/teleport/api/types/discoveryconfig"
 	discoveryConfigConvertv1 "github.com/gravitational/teleport/api/types/discoveryconfig/convert/v1"
+	resourcesv1 "github.com/gravitational/teleport/integrations/operator/apis/resources/v1"
 	"github.com/gravitational/teleport/lib/tfgen"
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
@@ -65,16 +66,25 @@ var resourceTypeOverrides = map[string]string{
 //  3. For resources that include a header, call utils.FastUnmarshal into the
 //     internal representation of the type, then convert to a Protobuf-based type
 //     and wrap with a header.
-var resourceConfig = map[string]jsonConverter{
+var resourceConfig = map[string]conversionRule{
 	"role": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
 			var r types.RoleV6
 			if err := utils.FastUnmarshal(data, &r); err != nil {
-				return nil, trace.Errorf("invalid Teleport role in the input %w", err)
+				return nil, trace.Errorf("invalid Teleport role: %w", err)
 			}
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			role, ok := res.(*types.RoleV6)
+			if !ok {
+				return nil, trace.Errorf("cannot convert the input resource to a valid Teleport role")
+			}
+
+			crd := resourcesv1.TeleportRoleV8{
+				Spec: resourcesv1.TeleportRoleV8Spec(role.Spec),
+			}
+			return &crd, nil
 		},
 	},
 	"user": {
@@ -86,6 +96,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"trusted_cluster": {
@@ -97,6 +108,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"github": {
@@ -108,6 +120,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"saml": {
@@ -119,6 +132,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"oidc": {
@@ -130,6 +144,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"token": {
@@ -141,6 +156,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"lock": {
@@ -152,6 +168,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"cluster_networking_config": {
@@ -163,6 +180,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"cluster_auth_preference": {
@@ -174,6 +192,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"bot": {
@@ -185,6 +204,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"autoupdate_config": {
@@ -196,6 +216,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"autoupdate_version": {
@@ -207,6 +228,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"health_check_config": {
@@ -218,6 +240,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"workload_identity": {
@@ -229,6 +252,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"app": {
@@ -240,6 +264,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"db": {
@@ -251,6 +276,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"kube_cluster": {
@@ -262,6 +288,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"node": {
@@ -273,6 +300,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"saml_idp_service_provider": {
@@ -284,6 +312,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"access_list": {
@@ -295,6 +324,7 @@ var resourceConfig = map[string]jsonConverter{
 			return tfgen.WrapHeaderResource(convertv1.ToProto(&al)), nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"access_list_member": {
@@ -306,6 +336,7 @@ var resourceConfig = map[string]jsonConverter{
 			return tfgen.WrapHeaderResource(convertv1.ToMemberProto(&m)), nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"access_monitoring_rule": {
@@ -317,6 +348,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"login_rule": {
@@ -324,6 +356,7 @@ var resourceConfig = map[string]jsonConverter{
 			return nil, trace.Errorf("login_rule is not yet supported for HCL conversion, since performing the conversion requires running the Terraform provider")
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"discovery_config": {
@@ -335,6 +368,7 @@ var resourceConfig = map[string]jsonConverter{
 			return tfgen.WrapHeaderResource(discoveryConfigConvertv1.ToProto(&dc)), nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"integration": {
@@ -346,6 +380,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"okta_import_rule": {
@@ -357,6 +392,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"device": {
@@ -368,6 +404,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"installer": {
@@ -379,6 +416,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"session_recording_config": {
@@ -390,6 +428,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"ui_config": {
@@ -401,6 +440,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"cluster_maintenance_config": {
@@ -412,6 +452,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"dynamic_windows_desktop": {
@@ -423,6 +464,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"static_host_user": {
@@ -434,6 +476,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"vnet_config": {
@@ -445,6 +488,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"app_auth_config": {
@@ -456,6 +500,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"db_object_import_rule": {
@@ -467,6 +512,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"workload_cluster": {
@@ -478,6 +524,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"inference_model": {
@@ -489,6 +536,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"inference_secret": {
@@ -500,6 +548,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"inference_policy": {
@@ -511,6 +560,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"retrieval_model": {
@@ -522,6 +572,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"scoped_role": {
@@ -533,6 +584,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"scoped_role_assignment": {
@@ -544,6 +596,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 	"scoped_token": {
@@ -555,6 +608,7 @@ var resourceConfig = map[string]jsonConverter{
 			return &r, nil
 		},
 		toKubernetes: func(res tfgen.Resource) (runtime.Object, error) {
+			return nil, nil
 		},
 	},
 }
@@ -582,9 +636,9 @@ func convertYAMLToHCL(w io.Writer, r io.Reader) error {
 		return trace.Errorf("converting %v to a Terraform resource is not supported", o.Kind)
 	}
 
-	res, err := convert(jsonbytes)
+	res, err := convert.toTeleport(jsonbytes)
 	if err != nil {
-		return trace.Errorf("unable to convert %v to a Terraform resource: %w", o.Kind, err)
+		return trace.Errorf("unable to convert %v to a Teleport resource: %w", o.Kind, err)
 	}
 
 	var opts []tfgen.GenerateOpt
@@ -624,6 +678,26 @@ func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
 	if !ok {
 		return trace.Errorf("converting %v to a Kubernetes operator resource is not supported", o.Kind)
 	}
+
+	res, err := convert.toTeleport(jsonbytes)
+	if err != nil {
+		return trace.Errorf("unable to convert %v to a Teleport resource: %w", o.Kind, err)
+	}
+
+	crd, err := convert.toKubernetes(res)
+	if err != nil {
+		return trace.Errorf("unable to convert %v to a Kubernetes operator resource: %w", o.Kind, err)
+	}
+
+	outbytes, err := yaml.Marshal(&crd)
+	if err != nil {
+		return trace.Errorf("could not encode %v as YAML: %w", o.Kind, err)
+	}
+
+	if _, err := w.Write(outbytes); err != nil {
+		return trace.Errorf("unable to process the converted HCL: %w", err)
+	}
+	return nil
 }
 
 func main() {
