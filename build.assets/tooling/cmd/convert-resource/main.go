@@ -663,7 +663,7 @@ func convertYAMLToHCL(w io.Writer, r io.Reader) error {
 	return nil
 }
 
-func marshalToYAMLWithNoEmptyFields(obj runtime.Object) ([]byte, error) {
+func marshalToYAMLWithNoUndefinedFields(original map[string]any, obj runtime.Object) ([]byte, error) {
 	jsonbytes, err := json.Marshal(obj)
 	if err != nil {
 		return nil, trace.Errorf("unable to convert an object to JSON (this is a bug): %w", err)
@@ -673,25 +673,37 @@ func marshalToYAMLWithNoEmptyFields(obj runtime.Object) ([]byte, error) {
 	if err := json.Unmarshal(jsonbytes, &m); err != nil {
 		return nil, trace.Errorf("unable to unmarshal JSON to a map (this is a bug): %w", err)
 	}
-	stripEmptyFields(m)
+	stripUndefinedFields(original, m)
 	return yaml.Marshal(m)
 }
 
-func stripEmptyFields(m map[string]any) {
-	for k, v := range m {
-		switch v.(type) {
-		case map[string]any:
-			msa := v.(map[string]any)
-			stripEmptyFields(msa)
-			if len(msa) == 0 {
-				delete(m, k)
-			}
-		case string:
-			if v.(string) == "" {
-				delete(m, k)
-			}
-		case nil:
-			delete(m, k)
+func stripUndefinedFields(original map[string]any, recent map[string]any) {
+	for key, newVal := range recent {
+		// This is the one field we expect to be new to Kubernetes resources
+		if key == "apiVersion" {
+			continue
+		}
+
+		// The key is not present in the original, so remove it
+		originalValue, ok := original[key]
+		if !ok {
+			delete(recent, key)
+		}
+
+		newMapVal, ok := newVal.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		originalMapVal, ok := originalValue.(map[string]any)
+		if !ok {
+			delete(recent, key)
+			continue
+		}
+
+		stripUndefinedFields(originalMapVal, newMapVal)
+		if len(newMapVal) == 0 {
+			delete(recent, key)
 		}
 	}
 }
@@ -705,6 +717,11 @@ func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
 	jsonbytes, err := utils.ToJSON(yamlBuf.Bytes())
 	if err != nil {
 		return trace.Errorf("unable to process input YAML as JSON (which we need to do to convert it to a Teleport resource type): %w", err)
+	}
+
+	var original map[string]any
+	if err = yaml.Unmarshal(jsonbytes, &original); err != nil {
+		return trace.Errorf("unable to convert the input resource to a mapping: %w", err)
 	}
 
 	var o kindObject
@@ -727,7 +744,7 @@ func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
 		return trace.Errorf("unable to convert %v to a Kubernetes operator resource: %w", o.Kind, err)
 	}
 
-	outbytes, err := marshalToYAMLWithNoEmptyFields(crd)
+	outbytes, err := marshalToYAMLWithNoUndefinedFields(original, crd)
 	if err != nil {
 		return trace.Errorf("could not encode %v as YAML: %w", o.Kind, err)
 	}
