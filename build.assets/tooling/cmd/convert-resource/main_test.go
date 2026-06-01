@@ -185,10 +185,18 @@ metadata:
 spec:
   allow:
     rules:
-      - resources: ['user', 'role']
-        verbs: ['list','read']
-      - resources: ['session', 'event']
-        verbs: ['list', 'read']
+    - resources:
+      - user
+      - role
+      verbs:
+      - list
+      - read
+    - resources:
+      - session
+      - event
+      verbs:
+      - list
+      - read
 `,
 		},
 		// 		{

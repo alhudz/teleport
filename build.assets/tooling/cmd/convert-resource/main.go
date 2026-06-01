@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"google.golang.org/protobuf/encoding/protojson"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -82,7 +83,14 @@ var resourceConfig = map[string]conversionRule{
 			}
 
 			crd := resourcesv1.TeleportRoleV8{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "TeleportRoleV8",
+					APIVersion: "resources.teleport.dev/v1",
+				},
 				Spec: resourcesv1.TeleportRoleV8Spec(role.Spec),
+				ObjectMeta: metav1.ObjectMeta{
+					Name: role.Metadata.Name,
+				},
 			}
 			return &crd, nil
 		},
