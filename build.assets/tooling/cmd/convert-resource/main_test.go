@@ -263,51 +263,6 @@ spec:
     team: github-team
 `,
 		},
-
-		// 		{
-		// 			description: "access list",
-		// 			input: `version: v1
-		// kind: access_list
-		// metadata:
-		//   name: support-engineers
-		// spec:
-		//   title: "Production access for support engineers"
-		//   audit:
-		//     recurrence:
-		//       frequency: 6months
-		//   description: "Use this Access List to grant access to production to your engineers enrolled in the
-		// support rotation."
-		//   owners:
-		//     - description: "manager of NA support team"
-		//       name: alice
-		//   ownership_requires:
-		//     roles:
-		//       - manager
-		//   grants:
-		//     roles:
-		//       - support-engineer
-		//   membership_requires:
-		//     roles:
-		//       - engineer
-		// `,
-		// 			expected: ``,
-		// 		},
-		//		{
-		//			description: "rfd 153 resource",
-		//			input: `kind: bot
-		//version: v1
-		//metadata:
-		//  name: example
-		//spec:
-		//  roles:
-		//  - editor
-		//  traits:
-		//  - name: logins
-		//    values:
-		//    - root
-		//`,
-		//			expected: ``,
-		//		},
 	}
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
