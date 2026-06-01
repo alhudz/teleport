@@ -93,6 +93,11 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion:        "resources.teleport.dev/v2",
+			kind:              "TeleportUser",
+			ignoredSpecFields: []string{"local_auth", "expires", "created_by", "status"},
+		},
 	},
 	"trusted_cluster": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -101,6 +106,11 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid trusted_cluster: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion:        "resources.teleport.dev/v1",
+			kind:              "TeleportTrustedClusterV2",
+			ignoredSpecFields: []string{"roles"},
 		},
 	},
 	"github": {
@@ -125,6 +135,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v2",
+			kind:       "TeleportSAMLConnector",
+		},
 	},
 	"oidc": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -133,6 +147,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid oidc connector: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v3",
+			kind:       "TeleportOIDCConnector",
 		},
 	},
 	"token": {
@@ -143,6 +161,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v2",
+			kind:       "TeleportProvisionToken",
+		},
 	},
 	"lock": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -151,6 +173,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid lock: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportLockV2",
 		},
 	},
 	"cluster_networking_config": {
@@ -161,6 +187,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"cluster_auth_preference": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -170,6 +197,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"bot": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -178,6 +206,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid bot: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportBotV1",
 		},
 	},
 	"autoupdate_config": {
@@ -188,6 +220,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportAutoupdateConfigV1",
+		},
 	},
 	"autoupdate_version": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -196,6 +232,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid autoupdate_version: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportAutoupdateVersionV1",
 		},
 	},
 	"health_check_config": {
@@ -206,6 +246,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"workload_identity": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -214,6 +255,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid workload_identity: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportWorkloadIdentityV1",
 		},
 	},
 	"app": {
@@ -224,6 +269,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportAppV3",
+		},
 	},
 	"db": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -232,6 +281,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid db: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportDatabaseV3",
 		},
 	},
 	"kube_cluster": {
@@ -242,6 +295,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"node": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -255,7 +309,7 @@ var resourceConfig = map[string]conversionRule{
 			apiVersion: "resources.teleport.dev/v1",
 			subKindToResourceKind: map[string]string{
 				"openssh":         "TeleportOpenSSHServerV2",
-				"openssh-ec2-ice": "TeleportOpenSSHICEServerV2",
+				"openssh-ec2-ice": "TeleportOpenSSHEICEServerV2",
 			},
 			ignoredSpecFields: []string{"cmd_labels", "component_features"},
 		},
@@ -268,6 +322,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportSAMLIdPServiceProviderV1",
+		},
 	},
 	"access_list": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -276,6 +334,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid access_list: %w", err)
 			}
 			return tfgen.WrapHeaderResource(convertv1.ToProto(&al)), nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportAccessList",
 		},
 	},
 	"access_list_member": {
@@ -286,6 +348,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return tfgen.WrapHeaderResource(convertv1.ToMemberProto(&m)), nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"access_monitoring_rule": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -295,11 +358,16 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportAccessMonitoringRuleV1",
+		},
 	},
 	"login_rule": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
 			return nil, trace.Errorf("login_rule is not yet supported for HCL conversion, since performing the conversion requires running the Terraform provider")
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"discovery_config": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -309,6 +377,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return tfgen.WrapHeaderResource(discoveryConfigConvertv1.ToProto(&dc)), nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"integration": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -318,6 +387,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"okta_import_rule": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -326,6 +396,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid okta_import_rule: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportOktaImportRule",
 		},
 	},
 	"device": {
@@ -336,6 +410,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"installer": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -345,6 +420,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"session_recording_config": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -354,6 +430,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"ui_config": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -363,6 +440,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"cluster_maintenance_config": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -372,6 +450,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"dynamic_windows_desktop": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -381,6 +460,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"static_host_user": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -390,6 +470,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"vnet_config": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -399,6 +480,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"app_auth_config": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -408,6 +490,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"db_object_import_rule": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -417,6 +500,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"workload_cluster": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -426,6 +510,7 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{unsupported: true},
 	},
 	"inference_model": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -434,6 +519,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid inference_model: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportInferenceModel",
 		},
 	},
 	"inference_secret": {
@@ -444,6 +533,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportInferenceSecret",
+		},
 	},
 	"inference_policy": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -452,6 +545,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid inference_policy: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportInferencePolicy",
 		},
 	},
 	"retrieval_model": {
@@ -462,6 +559,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportRetrievalModelV1",
+		},
 	},
 	"scoped_role": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -470,6 +571,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid scoped_role: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportScopedRoleV1",
 		},
 	},
 	"scoped_role_assignment": {
@@ -480,6 +585,10 @@ var resourceConfig = map[string]conversionRule{
 			}
 			return &r, nil
 		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportScopedRoleAssignmentV1",
+		},
 	},
 	"scoped_token": {
 		toTeleport: func(data []byte) (tfgen.Resource, error) {
@@ -488,6 +597,10 @@ var resourceConfig = map[string]conversionRule{
 				return nil, trace.Errorf("invalid scoped_token: %w", err)
 			}
 			return &r, nil
+		},
+		kubernetes: kubeConversionAttributes{
+			apiVersion: "resources.teleport.dev/v1",
+			kind:       "TeleportScopedTokenV1",
 		},
 	},
 }
