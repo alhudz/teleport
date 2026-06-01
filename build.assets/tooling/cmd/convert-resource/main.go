@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 
 	"github.com/ghodss/yaml"
@@ -664,6 +665,39 @@ func convertYAMLToHCL(w io.Writer, r io.Reader) error {
 	return nil
 }
 
+func marshalToYAMLWithNoEmptyFields(obj runtime.Object) ([]byte, error) {
+	jsonbytes, err := json.Marshal(obj)
+	if err != nil {
+		return nil, trace.Errorf("unable to convert an object to JSON (this is a bug): %w", err)
+	}
+
+	var m map[string]any
+	if err := json.Unmarshal(jsonbytes, &m); err != nil {
+		return nil, trace.Errorf("unable to unmarshal JSON to a map (this is a bug): %w", err)
+	}
+	stripEmptyFields(m)
+	return yaml.Marshal(m)
+}
+
+func stripEmptyFields(m map[string]any) {
+	for k, v := range m {
+		switch v.(type) {
+		case map[string]any:
+			msa := v.(map[string]any)
+			stripEmptyFields(msa)
+			if len(msa) == 0 {
+				delete(m, k)
+			}
+		case string:
+			if v.(string) == "" {
+				delete(m, k)
+			}
+		case nil:
+			delete(m, k)
+		}
+	}
+}
+
 func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
 	var yamlBuf, kindBuf bytes.Buffer
 	dest := io.MultiWriter(&yamlBuf, &kindBuf)
@@ -697,13 +731,13 @@ func convertYAMLtoKubernetes(w io.Writer, r io.Reader) error {
 		return trace.Errorf("unable to convert %v to a Kubernetes operator resource: %w", o.Kind, err)
 	}
 
-	outbytes, err := yaml.Marshal(&crd)
+	outbytes, err := marshalToYAMLWithNoEmptyFields(crd)
 	if err != nil {
 		return trace.Errorf("could not encode %v as YAML: %w", o.Kind, err)
 	}
 
 	if _, err := w.Write(outbytes); err != nil {
-		return trace.Errorf("unable to process the converted HCL: %w", err)
+		return trace.Errorf("unable to process the converted Kubernetes resource: %w", err)
 	}
 	return nil
 }
